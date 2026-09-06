@@ -1,17 +1,25 @@
-# הגדרת סביבת פייתון בסיסית וקלה
-FROM python:3.9-slim
+# שימוש בתמונת בסיס רשמית של אובונטו
+FROM ubuntu:22.04
+
+# מניעת חלונות קופצים ושאלות אינטראקטיביות מצד אובונטו בזמן ההתקנה
+ENV DEBIAN_FRONTEND=noninteractive
+
+# עדכון חבילות המערכת והתקנת פייתון, מנהל החבילות (pip) ותמיכה ב-SQLite
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # הגדרת תיקיית העבודה בתוך הקונטיינר
 WORKDIR /app
 
-# העתקת קובץ הדרישות (אם יש לך כזה) והתקנת הספריות
-# אם הפרויקט לא דורש ספריות חיצוניות ואין requirements.txt, אפשר למחוק את שתי השורות הבאות
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# העתקת כל שאר קבצי הפרויקט לתוך הקונטיינר
+# העתקת כל קבצי הפרויקט לתיקיית העבודה
 COPY . .
 
-# הפקודה שתרוץ כשהקונטיינר יעלה 
-# שים לב: תחליף את "main.py" בשם של קובץ הפייתון הראשי שמריץ את הפרויקט שלך
-CMD ["python", "main.py"]
+# במידה ויש לך קובץ requirements.txt, הסר את הסולמית מהשורה הבאה כדי להתקין את הספריות:
+# RUN pip3 install --no-cache-dir -r requirements.txt
+
+# הפקודה שתרוץ כשהקונטיינר יעלה
+CMD ["python3", "__main__.py"]
+
