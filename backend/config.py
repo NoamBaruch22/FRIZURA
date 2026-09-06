@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import SecretStr
 
@@ -18,6 +19,9 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     groq_api_key: SecretStr | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=os.path.join(os.path.dirname(__file__), '.env'),
+        env_file_encoding="utf-8"
+    )
 
 settings = Settings()
