@@ -4,7 +4,7 @@ import axios from 'axios';
 
 export default function CustomerHome() {
   const [messages, setMessages] = useState<{role: string, content: string, options?: string[]}[]>([
-    { role: 'model', content: 'שלום וברוכים הבאים למספרת FRIZURA! ✂️ איך אוכל לעזור לך היום?', options: ["לקבוע תור", "שעות פעילות", "איזה שירותים יש לכם?"] }
+    { role: 'model', content: 'שלום וברוכים הבאים למספרת FRIZURA! ✂️ איך אוכל לעזור לך היום?', options: ["לקבוע תור", "בדיקת תור קיים", "שעות פעילות", "איזה שירותים יש לכם?"] }
   ]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
