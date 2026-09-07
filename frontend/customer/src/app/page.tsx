@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 export default function CustomerHome() {
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([
-    { role: 'model', content: 'שלום! אני העוזר החכם של FRIZURA. איך אפשר לעזור?' }
+  const [messages, setMessages] = useState<{role: string, content: string, options?: string[]}[]>([
+    { role: 'model', content: 'שלום וברוכים הבאים למספרת FRIZURA! ✂️ איך אוכל לעזור לך היום?', options: ["לקבוע תור", "שעות פעילות", "איזה שירותים יש לכם?"] }
   ]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -23,10 +23,12 @@ export default function CustomerHome() {
   });
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+  const sendMessage = async (text?: string | React.MouseEvent) => {
+    // If text is a string (from a button click), use it. Otherwise use the input state.
+    const messageContent = typeof text === 'string' ? text : input;
+    if (!messageContent.trim()) return;
     
-    const newMessages = [...messages, { role: 'user', content: input }];
+    const newMessages = [...messages, { role: 'user', content: messageContent }];
     setMessages(newMessages);
     setInput('');
     setIsLoading(true);
@@ -37,7 +39,7 @@ export default function CustomerHome() {
         phone: "guest",
         messages: newMessages
       });
-      setMessages([...newMessages, { role: 'model', content: response.data.reply }]);
+      setMessages([...newMessages, { role: 'model', content: response.data.reply, options: response.data.options }]);
     } catch (error) {
       console.error(error);
       setMessages([...newMessages, { role: 'model', content: 'מצטערים, חלה שגיאה בתקשורת עם השרת.' }]);
@@ -147,8 +149,23 @@ export default function CustomerHome() {
           
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
             {messages.map((msg, i) => (
-              <div key={i} className={`p-3 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-[#c9a962] text-white self-end rounded-br-none' : 'bg-white border text-gray-800 self-start rounded-bl-none'}`}>
-                <p className="text-sm">{msg.content}</p>
+              <div key={i} className="flex flex-col gap-2">
+                <div className={`p-3 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-[#c9a962] text-white self-end rounded-br-none' : 'bg-white border text-gray-800 self-start rounded-bl-none'}`}>
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                </div>
+                {msg.options && msg.options.length > 0 && msg.role === 'model' && i === messages.length - 1 && !isLoading && (
+                  <div className="flex flex-wrap gap-2 mt-1 self-start">
+                    {msg.options.map((opt, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => sendMessage(opt)}
+                        className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-xs hover:bg-blue-100 transition"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {isLoading && (

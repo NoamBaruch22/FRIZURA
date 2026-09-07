@@ -11,6 +11,7 @@ chatbot = ChatbotService()
 class ChatMessage(BaseModel):
     role: str
     content: str
+    options: List[str] = []
 
 class ChatRequest(BaseModel):
     phone: str
@@ -18,9 +19,10 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    options: List[str] = []
 
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("10/minute")
 async def chat(request: Request, chat_req: ChatRequest):
-    reply = await chatbot.process_chat(chat_req.phone, chat_req.messages)
-    return {"reply": reply}
+    data = await chatbot.process_chat(chat_req.phone, chat_req.messages)
+    return {"reply": data["reply"], "options": data.get("options", [])}
