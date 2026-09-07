@@ -97,11 +97,16 @@ async def create_public_booking(
     client_result = await db.execute(select(Client).filter(Client.phone == booking_in.phone))
     client = client_result.scalars().first()
     
+    if client and not client.email and booking_in.email:
+        client.email = booking_in.email
+        await db.commit()
+    
     if not client:
         client = Client(
             first_name=booking_in.first_name,
             last_name=booking_in.last_name,
             phone=booking_in.phone,
+            email=booking_in.email,
             notes="Auto-created from public booking"
         )
         db.add(client)
