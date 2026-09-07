@@ -10,6 +10,9 @@ export default function ManagerDashboard() {
   
   const [appointments, setAppointments] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -32,12 +35,18 @@ export default function ManagerDashboard() {
     setLoading(true);
     try {
       const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
-      const [apptsRes, leadsRes] = await Promise.all([
+      const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes] = await Promise.all([
         axios.get(`${apiUrl}/api/appointments/`),
-        axios.get(`${apiUrl}/api/leads/`)
+        axios.get(`${apiUrl}/api/leads/`),
+        axios.get(`${apiUrl}/api/clients/`),
+        axios.get(`${apiUrl}/api/invoices/`),
+        axios.get(`${apiUrl}/api/settings/`)
       ]);
       setAppointments(apptsRes.data);
       setLeads(leadsRes.data);
+      setClients(clientsRes.data);
+      setInvoices(invoicesRes.data);
+      setSettings(settingsRes.data);
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 401) {
@@ -148,11 +157,96 @@ export default function ManagerDashboard() {
       );
     }
 
-    if (activeTab === 'clients' || activeTab === 'invoices' || activeTab === 'settings') {
+    if (activeTab === 'clients') {
       return (
-        <div className="flex flex-col items-center justify-center h-64">
-          <h1 className="text-3xl font-bold text-gray-400 mb-4">מסך בבנייה</h1>
-          <p className="text-gray-500">פיצ'ר זה עדיין לא פותח בגרסה הנוכחית.</p>
+        <div>
+          <h1 className="text-3xl font-bold mb-6">לקוחות רשומים</h1>
+          <div className="bg-white rounded shadow p-6">
+            {clients.length === 0 ? (
+              <p className="text-gray-500">אין לקוחות במערכת.</p>
+            ) : (
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="pb-2">שם</th>
+                    <th className="pb-2">טלפון</th>
+                    <th className="pb-2">אימייל</th>
+                    <th className="pb-2">הערות וכתובת</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map(client => (
+                    <tr key={client.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3">{client.first_name} {client.last_name}</td>
+                      <td className="py-3" dir="ltr">{client.phone}</td>
+                      <td className="py-3">{client.email || '-'}</td>
+                      <td className="py-3">{client.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'invoices') {
+      return (
+        <div>
+          <h1 className="text-3xl font-bold mb-6">קופות וחשבוניות</h1>
+          <div className="bg-white rounded shadow p-6">
+            {invoices.length === 0 ? (
+              <p className="text-gray-500">אין חשבוניות במערכת.</p>
+            ) : (
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="pb-2">מזהה לקוח</th>
+                    <th className="pb-2">סכום</th>
+                    <th className="pb-2">תיאור שירות</th>
+                    <th className="pb-2">תאריך</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map(inv => (
+                    <tr key={inv.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3">{inv.client_id}</td>
+                      <td className="py-3 text-green-600 font-bold">{inv.amount} ₪</td>
+                      <td className="py-3">{inv.service_description}</td>
+                      <td className="py-3" dir="ltr">{inv.invoice_date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'settings') {
+      return (
+        <div>
+          <h1 className="text-3xl font-bold mb-6">הגדרות עסק</h1>
+          {settings ? (
+            <div className="bg-white rounded shadow p-6 flex flex-col gap-4 max-w-lg">
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">שם העסק</label>
+                <input type="text" className="border p-2 rounded w-full bg-gray-50" readOnly value={settings.business_name || ''} />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">כתובת</label>
+                <input type="text" className="border p-2 rounded w-full bg-gray-50" readOnly value={settings.address || ''} />
+              </div>
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">טלפון</label>
+                <input type="text" className="border p-2 rounded w-full bg-gray-50" readOnly value={settings.phone || ''} dir="ltr" />
+              </div>
+            </div>
+          ) : (
+            <p>טוען הגדרות...</p>
+          )}
         </div>
       );
     }
