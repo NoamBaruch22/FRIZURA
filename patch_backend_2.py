@@ -1,28 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
-
-from backend.database.connection import get_db
-from backend.database.models import Invoice
-from backend.schemas.invoices import InvoiceCreate, InvoiceResponse
-from backend.auth.dependencies import get_current_manager
-
-router = APIRouter(prefix="/api/invoices", tags=["Invoices"])
-
-@router.get("/", response_model=List[InvoiceResponse])
-async def get_invoices(db: AsyncSession = Depends(get_db), current_manager = Depends(get_current_manager)):
-    result = await db.execute(select(Invoice).filter(Invoice.is_deleted == False))
+patch_appt = """
+@router.get("/archive", response_model=List[AppointmentResponse])
+async def get_archived_appointments(
+    db: AsyncSession = Depends(get_db),
+    current_user: Manager = Depends(get_current_manager)
+) -> Any:
+    result = await db.execute(select(Appointment).filter(Appointment.is_deleted == True))
     return result.scalars().all()
 
-@router.post("/", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
-async def create_invoice(invoice_in: InvoiceCreate, db: AsyncSession = Depends(get_db), current_manager = Depends(get_current_manager)):
-    new_invoice = Invoice(**invoice_in.model_dump())
-    db.add(new_invoice)
+@router.post("/{appt_id}/restore", response_model=AppointmentResponse)
+async def restore_appointment(
+    appt_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Manager = Depends(get_current_manager)
+) -> Any:
+    result = await db.execute(select(Appointment).filter(Appointment.id == appt_id))
+    appt = result.scalars().first()
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+        
+    appt.is_deleted = False
     await db.commit()
-    await db.refresh(new_invoice)
-    return new_invoice
+    await db.refresh(appt)
+    return appt
+"""
+with open('backend/routers/appointments.py', 'a') as f:
+    f.write(patch_appt)
 
+
+patch_inv = """
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_invoice(invoice_id: int, db: AsyncSession = Depends(get_db), current_manager = Depends(get_current_manager)):
     result = await db.execute(select(Invoice).filter(Invoice.id == invoice_id))
@@ -47,3 +52,7 @@ async def restore_invoice(invoice_id: int, db: AsyncSession = Depends(get_db), c
     await db.commit()
     await db.refresh(inv)
     return inv
+"""
+with open('backend/routers/invoices.py', 'a') as f:
+    f.write(patch_inv)
+print("Done")

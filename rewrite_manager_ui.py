@@ -1,4 +1,6 @@
-'use client';
+import os
+
+new_code = """'use client';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -526,3 +528,7 @@ export default function ManagerDashboard() {
     </div>
   );
 }
+"""
+with open('frontend/manager/src/app/page.tsx', 'w') as f:
+    f.write(new_code)
+print("Updated page.tsx")

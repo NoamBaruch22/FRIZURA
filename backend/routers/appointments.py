@@ -137,3 +137,27 @@ async def delete_appointment(
         
     appt.is_deleted = True
     await db.commit()
+
+@router.get("/archive", response_model=List[AppointmentResponse])
+async def get_archived_appointments(
+    db: AsyncSession = Depends(get_db),
+    current_user: Manager = Depends(get_current_manager)
+) -> Any:
+    result = await db.execute(select(Appointment).filter(Appointment.is_deleted == True))
+    return result.scalars().all()
+
+@router.post("/{appt_id}/restore", response_model=AppointmentResponse)
+async def restore_appointment(
+    appt_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Manager = Depends(get_current_manager)
+) -> Any:
+    result = await db.execute(select(Appointment).filter(Appointment.id == appt_id))
+    appt = result.scalars().first()
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+        
+    appt.is_deleted = False
+    await db.commit()
+    await db.refresh(appt)
+    return appt
