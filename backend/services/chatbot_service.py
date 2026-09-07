@@ -108,15 +108,26 @@ class ChatbotService:
             return {"reply": "מצטערים, התהליך מורכב מדי כרגע.", "options": []}
             
         try:
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=history,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.system_prompt,
-                    temperature=0.7,
-                    response_mime_type="application/json"
-                )
-            )
+            import asyncio
+            response = None
+            for attempt in range(3):
+                try:
+                    response = self.client.models.generate_content(
+                        model=self.model_id,
+                        contents=history,
+                        config=types.GenerateContentConfig(
+                            system_instruction=self.system_prompt,
+                            temperature=0.7,
+                            response_mime_type="application/json"
+                        )
+                    )
+                    break
+                except Exception as inner_e:
+                    if "503" in str(inner_e) and attempt < 2:
+                        await asyncio.sleep(1.5)
+                        continue
+                    raise inner_e
+                    
             data = json.loads(response.text)
             
             action = data.get("action", {})
