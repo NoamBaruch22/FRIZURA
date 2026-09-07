@@ -17,7 +17,9 @@ export default function CustomerHome() {
     first_name: '',
     last_name: '',
     phone: '',
-    notes: ''
+    notes: '',
+    appointment_date: '',
+    appointment_time: ''
   });
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
@@ -30,7 +32,8 @@ export default function CustomerHome() {
     setIsLoading(true);
     
     try {
-      const response = await axios.post('/api/chatbot/chat', {
+      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
+      const response = await axios.post(`${apiUrl}/api/chatbot/chat`, {
         phone: "guest",
         messages: newMessages
       });
@@ -46,22 +49,28 @@ export default function CustomerHome() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('/api/leads/', {
+      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
+      await axios.post(`${apiUrl}/api/appointments/book_public`, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
-        source: "אתר",
-        notes: `בקשה לתור: ${bookingService} | הערות: ${formData.notes}`
+        service: bookingService,
+        appointment_date: formData.appointment_date,
+        appointment_time: formData.appointment_time
       });
       setBookingSuccess(true);
       setTimeout(() => {
         setShowBooking(false);
         setBookingSuccess(false);
-        setFormData({ first_name: '', last_name: '', phone: '', notes: '' });
+        setFormData({ first_name: '', last_name: '', phone: '', notes: '', appointment_date: '', appointment_time: '' });
       }, 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("שגיאה בשליחת הבקשה. אנא נסה שנית.");
+      if (err.response?.status === 409) {
+        alert("השעה תפוסה! יש כבר תור בטווח של שעה מהזמן שבחרת. אנא בחר שעה אחרת.");
+      } else {
+        alert("שגיאה בשליחת הבקשה. אנא נסה שנית.");
+      }
     }
   };
 
@@ -116,6 +125,10 @@ export default function CustomerHome() {
                   <input required type="text" placeholder="שם משפחה" className="border p-2 rounded flex-1" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
                 </div>
                 <input required type="tel" placeholder="מספר טלפון" className="border p-2 rounded" dir="ltr" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <div className="flex gap-4">
+                  <input required type="date" className="border p-2 rounded flex-1" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} min={new Date().toISOString().split('T')[0]} />
+                  <input required type="time" className="border p-2 rounded flex-1" value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})} step="1800" />
+                </div>
                 <textarea placeholder="הערות נוספות (לא חובה)" className="border p-2 rounded h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})}></textarea>
                 <button type="submit" className="bg-[#1a2332] text-white p-3 rounded-xl font-bold hover:bg-gray-800 mt-2">שלח בקשה לתור</button>
               </form>

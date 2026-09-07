@@ -24,3 +24,11 @@ class AppointmentResponse(AppointmentBase):
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
+
+class PublicBooking(BaseModel):
+    first_name: str
+    last_name: str
+    phone: str
+    service: str
+    appointment_date: date
+    appointment_time: time

@@ -5,8 +5,8 @@ from typing import List, Any
 from datetime import datetime, timedelta, date, time
 
 from backend.database.connection import get_db
-from backend.database.models import Appointment, Manager
-from backend.schemas.appointments import AppointmentCreate, AppointmentUpdate, AppointmentResponse
+from backend.database.models import Appointment, Manager, Client
+from backend.schemas.appointments import AppointmentCreate, AppointmentUpdate, AppointmentResponse, PublicBooking
 from backend.auth.dependencies import get_current_manager
 
 router = APIRouter(prefix="/api/appointments", tags=["Appointments"])
@@ -69,6 +69,53 @@ async def create_appointment(
         )
         
     new_appt = Appointment(**appt_in.model_dump())
+    db.add(new_appt)
+    await db.commit()
+    await db.refresh(new_appt)
+    return new_appt
+
+
+# (at the end of the file or near create_appointment)
+@router.post("/book_public", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_public_booking(
+    booking_in: PublicBooking,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Public endpoint for customers to book an appointment directly.
+    Finds or creates a Client by phone, then creates the Appointment.
+    """
+    # 1. Check for collision
+    collision = await check_collision(db, booking_in.appointment_date, booking_in.appointment_time)
+    if collision:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="There is already an appointment scheduled within 60 minutes of this time."
+        )
+        
+    # 2. Find or create client
+    client_result = await db.execute(select(Client).filter(Client.phone == booking_in.phone))
+    client = client_result.scalars().first()
+    
+    if not client:
+        client = Client(
+            first_name=booking_in.first_name,
+            last_name=booking_in.last_name,
+            phone=booking_in.phone,
+            notes="Auto-created from public booking"
+        )
+        db.add(client)
+        await db.commit()
+        await db.refresh(client)
+        
+    # 3. Create appointment
+    new_appt = Appointment(
+        client_id=client.id,
+        service=booking_in.service,
+        appointment_date=booking_in.appointment_date,
+        appointment_time=booking_in.appointment_time,
+        status="ממתין לאישור"
+    )
     db.add(new_appt)
     await db.commit()
     await db.refresh(new_appt)

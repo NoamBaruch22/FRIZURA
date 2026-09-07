@@ -5,8 +5,9 @@ from backend.config import settings
 
 class ChatbotService:
     def __init__(self):
-        self.client = genai.Client(api_key=settings.gemini_api_key.get_secret_value())
-        self.model_id = "gemini-2.0-flash"
+        if settings.chatbot_provider == "gemini":
+            self.client = genai.Client(api_key=settings.gemini_api_key.get_secret_value())
+            self.model_id = "gemini-3.6-flash"
         self.system_prompt = """
         You are an AI assistant for FRIZURA boutique hair salon.
         Be polite, professional, and speak Hebrew by default.
@@ -23,12 +24,16 @@ class ChatbotService:
             for m in messages
         ]
         
-        response = self.client.models.generate_content(
-            model=self.model_id,
-            contents=history,
-            config=types.GenerateContentConfig(
-                system_instruction=self.system_prompt,
-                temperature=0.7
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=history,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.system_prompt,
+                    temperature=0.7
+                )
             )
-        )
-        return response.text
+            return response.text
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            return "מצטערים, המערכת החכמה שלנו חווה כרגע עומס זמני או שגיאת התחברות לשרתי Google. אנא נסה שנית בעוד כמה דקות."
