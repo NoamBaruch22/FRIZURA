@@ -129,7 +129,33 @@ export default function CustomerHome() {
                 <input required type="tel" placeholder="מספר טלפון" className="border p-2 rounded" dir="ltr" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                 <div className="flex gap-4">
                   <input required type="date" className="border p-2 rounded flex-1" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} min={new Date().toISOString().split('T')[0]} />
-                  <input required type="time" className="border p-2 rounded flex-1" value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})} step="1800" />
+                  <select required className="border p-2 rounded flex-1" value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})}>
+<option value="">בחר שעה</option>
+<option value="08:00">08:00</option>
+<option value="08:30">08:30</option>
+<option value="09:00">09:00</option>
+<option value="09:30">09:30</option>
+<option value="10:00">10:00</option>
+<option value="10:30">10:30</option>
+<option value="11:00">11:00</option>
+<option value="11:30">11:30</option>
+<option value="12:00">12:00</option>
+<option value="12:30">12:30</option>
+<option value="13:00">13:00</option>
+<option value="13:30">13:30</option>
+<option value="14:00">14:00</option>
+<option value="14:30">14:30</option>
+<option value="15:00">15:00</option>
+<option value="15:30">15:30</option>
+<option value="16:00">16:00</option>
+<option value="16:30">16:30</option>
+<option value="17:00">17:00</option>
+<option value="17:30">17:30</option>
+<option value="18:00">18:00</option>
+<option value="18:30">18:30</option>
+<option value="19:00">19:00</option>
+<option value="19:30">19:30</option>
+</select>
                 </div>
                 <textarea placeholder="הערות נוספות (לא חובה)" className="border p-2 rounded h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})}></textarea>
                 <button type="submit" className="bg-[#1a2332] text-white p-3 rounded-xl font-bold hover:bg-gray-800 mt-2">שלח בקשה לתור</button>

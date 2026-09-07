@@ -372,7 +372,88 @@ export default function ManagerDashboard() {
                 <label className="font-bold text-gray-700 block mb-1">טלפון</label>
                 <input type="text" className="border p-2 rounded w-full bg-gray-50 focus:bg-white" value={settings.phone || ''} onChange={e => setSettings({...settings, phone: e.target.value})} dir="ltr" />
               </div>
-              <button type="submit" className="bg-[#c9a962] text-white py-2 px-4 rounded hover:bg-yellow-600 self-start mt-2">שמור שינויים</button>
+              
+              <div className="mt-4 border-t pt-4">
+                <label className="font-bold text-gray-700 block mb-3">שעות פעילות (ימי עבודה)</label>
+                {['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'].map(day => (
+                  <div key={day} className="flex items-center gap-3 mb-2">
+                    <span className="w-16">{day}</span>
+                    <label className="flex items-center gap-1 text-sm">
+                      <input type="checkbox" 
+                        checked={settings.working_hours?.[day]?.active ?? true} 
+                        onChange={e => setSettings({...settings, working_hours: {...(settings.working_hours||{}), [day]: {...(settings.working_hours?.[day]||{}), active: e.target.checked}}})} 
+                      /> פעיל
+                    </label>
+                    <select 
+                      className="border rounded p-1 text-sm" 
+                      value={settings.working_hours?.[day]?.start || '09:00'}
+                      onChange={e => setSettings({...settings, working_hours: {...(settings.working_hours||{}), [day]: {...(settings.working_hours?.[day]||{}), start: e.target.value}}})}
+                      disabled={!(settings.working_hours?.[day]?.active ?? true)}
+                    >
+                      
+<option value="08:00">08:00</option>
+<option value="08:30">08:30</option>
+<option value="09:00">09:00</option>
+<option value="09:30">09:30</option>
+<option value="10:00">10:00</option>
+<option value="10:30">10:30</option>
+<option value="11:00">11:00</option>
+<option value="11:30">11:30</option>
+<option value="12:00">12:00</option>
+<option value="12:30">12:30</option>
+<option value="13:00">13:00</option>
+<option value="13:30">13:30</option>
+<option value="14:00">14:00</option>
+<option value="14:30">14:30</option>
+<option value="15:00">15:00</option>
+<option value="15:30">15:30</option>
+<option value="16:00">16:00</option>
+<option value="16:30">16:30</option>
+<option value="17:00">17:00</option>
+<option value="17:30">17:30</option>
+<option value="18:00">18:00</option>
+<option value="18:30">18:30</option>
+<option value="19:00">19:00</option>
+<option value="19:30">19:30</option>
+                    </select>
+                    <span>עד</span>
+                    <select 
+                      className="border rounded p-1 text-sm" 
+                      value={settings.working_hours?.[day]?.end || '18:00'}
+                      onChange={e => setSettings({...settings, working_hours: {...(settings.working_hours||{}), [day]: {...(settings.working_hours?.[day]||{}), end: e.target.value}}})}
+                      disabled={!(settings.working_hours?.[day]?.active ?? true)}
+                    >
+                      
+<option value="08:00">08:00</option>
+<option value="08:30">08:30</option>
+<option value="09:00">09:00</option>
+<option value="09:30">09:30</option>
+<option value="10:00">10:00</option>
+<option value="10:30">10:30</option>
+<option value="11:00">11:00</option>
+<option value="11:30">11:30</option>
+<option value="12:00">12:00</option>
+<option value="12:30">12:30</option>
+<option value="13:00">13:00</option>
+<option value="13:30">13:30</option>
+<option value="14:00">14:00</option>
+<option value="14:30">14:30</option>
+<option value="15:00">15:00</option>
+<option value="15:30">15:30</option>
+<option value="16:00">16:00</option>
+<option value="16:30">16:30</option>
+<option value="17:00">17:00</option>
+<option value="17:30">17:30</option>
+<option value="18:00">18:00</option>
+<option value="18:30">18:30</option>
+<option value="19:00">19:00</option>
+<option value="19:30">19:30</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              <button type="submit" className="bg-[#c9a962] text-white py-2 px-4 rounded hover:bg-yellow-600 self-start mt-4">שמור שינויים</button>
             </form>
           ) : <p>טוען הגדרות...</p>}
         </div>
@@ -494,7 +575,33 @@ export default function ManagerDashboard() {
               </select>
               <input type="text" placeholder="סוג שירות (למשל: תספורת גבר)" required className="border p-2 rounded" onChange={e => setFormData({...formData, service: e.target.value})} />
               <input type="date" required className="border p-2 rounded" onChange={e => setFormData({...formData, appointment_date: e.target.value})} />
-              <input type="time" required className="border p-2 rounded" onChange={e => setFormData({...formData, appointment_time: e.target.value+':00'})} />
+              <select required className="border p-2 rounded" value={formData.appointment_time?.substring(0,5) || ""} onChange={e => setFormData({...formData, appointment_time: e.target.value+":00"})}>
+<option value="">בחר שעה</option>
+<option value="08:00">08:00</option>
+<option value="08:30">08:30</option>
+<option value="09:00">09:00</option>
+<option value="09:30">09:30</option>
+<option value="10:00">10:00</option>
+<option value="10:30">10:30</option>
+<option value="11:00">11:00</option>
+<option value="11:30">11:30</option>
+<option value="12:00">12:00</option>
+<option value="12:30">12:30</option>
+<option value="13:00">13:00</option>
+<option value="13:30">13:30</option>
+<option value="14:00">14:00</option>
+<option value="14:30">14:30</option>
+<option value="15:00">15:00</option>
+<option value="15:30">15:30</option>
+<option value="16:00">16:00</option>
+<option value="16:30">16:30</option>
+<option value="17:00">17:00</option>
+<option value="17:30">17:30</option>
+<option value="18:00">18:00</option>
+<option value="18:30">18:30</option>
+<option value="19:00">19:00</option>
+<option value="19:30">19:30</option>
+</select>
               <div className="flex justify-end gap-2 mt-4">
                 <button type="button" onClick={() => setShowApptModal(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded">ביטול</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">שמור</button>
