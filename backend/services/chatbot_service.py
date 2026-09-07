@@ -19,7 +19,7 @@ class ChatbotService:
         # and provide tools (get_available_slots, book_appointment) to the Gemini client.
         
         history = [
-            types.Content(role=m.role, parts=[types.Part.from_text(f"<user_input>{m.content}</user_input>" if m.role == "user" else m.content)])
+            types.Content(role=m.role, parts=[types.Part.from_text(text=f"<user_input>{m.content}</user_input>" if m.role == "user" else m.content)])
             for m in messages
         ]
         

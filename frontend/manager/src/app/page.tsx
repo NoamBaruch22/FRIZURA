@@ -30,8 +30,8 @@ export default function ManagerDashboard() {
     setLoading(true);
     try {
       const [apptsRes, leadsRes] = await Promise.all([
-        axios.get('/api/appointments'),
-        axios.get('/api/leads')
+        axios.get('/api/appointments/'),
+        axios.get('/api/leads/')
       ]);
       setAppointments(apptsRes.data);
       setLeads(leadsRes.data);

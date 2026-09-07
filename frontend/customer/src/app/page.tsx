@@ -46,7 +46,7 @@ export default function CustomerHome() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('/api/leads', {
+      await axios.post('/api/leads/', {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
