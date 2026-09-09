@@ -31,7 +31,8 @@ export default function ManagerDashboard() {
   const [selectedClientForDossier, setSelectedClientForDossier] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
 
-  const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
+  // Direct backend API endpoint
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
   // Helpers
   const formatDate = (dateStr: string) => {
