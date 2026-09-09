@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from backend.services.chatbot_service import ChatbotService
 from backend.main import limiter
 from fastapi import Request
@@ -22,9 +22,14 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     options: List[str] = []
+    calendar_event: Optional[Dict[str, Any]] = None
 
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("10/minute")
 async def chat(request: Request, chat_req: ChatRequest, db: AsyncSession = Depends(get_db)):
     data = await chatbot.process_chat(db, chat_req.phone, chat_req.messages)
-    return {"reply": data["reply"], "options": data.get("options", [])}
+    return {
+        "reply": data["reply"], 
+        "options": data.get("options", []),
+        "calendar_event": data.get("calendar_event")
+    }

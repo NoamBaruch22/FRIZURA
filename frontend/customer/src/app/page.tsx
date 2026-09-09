@@ -2,17 +2,65 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+interface CalendarEvent {
+  title: string;
+  date: string;
+  time: string;
+  duration_minutes?: number;
+  location?: string;
+  description?: string;
+}
+
+interface ChatMsg {
+  role: string;
+  content: string;
+  options?: string[];
+  calendar_event?: CalendarEvent;
+}
+
 export default function CustomerHome() {
-  const [messages, setMessages] = useState<{role: string, content: string, options?: string[]}[]>([
+  const [messages, setMessages] = useState<ChatMsg[]>([
     { role: 'model', content: 'שלום וברוכים הבאים למספרת FRIZURA! ✂️ איך אוכל לעזור לך היום?', options: ["לקבוע תור", "בדיקת תור קיים", "שעות פעילות", "איזה שירותים יש לכם?"] }
   ]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
+  // Google Calendar URL Generator
+  const createGoogleCalendarUrl = (event: CalendarEvent) => {
+    try {
+      const cleanDate = event.date.replace(/-/g, '');
+      const timeParts = (event.time || '10:00').substring(0, 5).split(':');
+      const startHours = timeParts[0].padStart(2, '0');
+      const startMinutes = timeParts[1].padStart(2, '0');
+      
+      const startDateTime = `${cleanDate}T${startHours}${startMinutes}00`;
+      
+      // Calculate end time (default 60 min)
+      const duration = event.duration_minutes || 60;
+      const startTotalMinutes = parseInt(startHours, 10) * 60 + parseInt(startMinutes, 10);
+      const endTotalMinutes = startTotalMinutes + duration;
+      const endHours = String(Math.floor(endTotalMinutes / 60) % 24).padStart(2, '0');
+      const endMinutes = String(endTotalMinutes % 60).padStart(2, '0');
+      const endDateTime = `${cleanDate}T${endHours}${endMinutes}00`;
+
+      const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: event.title || 'תור למספרת FRIZURA',
+        dates: `${startDateTime}/${endDateTime}`,
+        details: event.description || 'תור למספרת FRIZURA - קפלן 5, אזור. טלפון: 054-2002400',
+        location: event.location || 'קפלן 5, אזור'
+      });
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    } catch {
+      return 'https://calendar.google.com';
+    }
+  };
+
   // Booking Form State
   const [showBooking, setShowBooking] = useState(false);
   const [bookingService, setBookingService] = useState('');
+  const [lastBookedEvent, setLastBookedEvent] = useState<CalendarEvent | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -31,6 +79,19 @@ export default function CustomerHome() {
     // If text is a string (from a button click), use it. Otherwise use the input state.
     const messageContent = typeof text === 'string' ? text : input;
     if (!messageContent.trim()) return;
+
+    // Check if user clicked the "Add to Google Calendar" option button
+    if (messageContent.includes("הוסף ליומן Google") || messageContent.includes("הוסף ליומן גוגל")) {
+      const lastWithCalendar = [...messages].reverse().find(m => m.calendar_event);
+      if (lastWithCalendar?.calendar_event) {
+        window.open(createGoogleCalendarUrl(lastWithCalendar.calendar_event), '_blank');
+        setMessages(prev => [...prev, 
+          { role: 'user', content: 'כן, הוסף ליומן גוגל' },
+          { role: 'model', content: 'מעולה! פתחתי עבורך את יומן Google עם כל פרטי הפגישה. נשמח לראותך! ✂️' }
+        ]);
+        return;
+      }
+    }
     
     const newMessages = [...messages, { role: 'user', content: messageContent }];
     setMessages(newMessages);
@@ -43,7 +104,12 @@ export default function CustomerHome() {
         phone: "guest",
         messages: newMessages
       });
-      setMessages([...newMessages, { role: 'model', content: response.data.reply, options: response.data.options }]);
+      setMessages([...newMessages, { 
+        role: 'model', 
+        content: response.data.reply, 
+        options: response.data.options,
+        calendar_event: response.data.calendar_event 
+      }]);
     } catch (error) {
       console.error(error);
       setMessages([...newMessages, { role: 'model', content: 'מצטערים, המערכת החכמה שלנו חווה כרגע עומס זמני או שגיאת התחברות לשרתי Google. אנא נסה שנית בעוד כמה דקות.' }]);
@@ -72,12 +138,15 @@ export default function CustomerHome() {
         appointment_date: formData.appointment_date,
         appointment_time: formData.appointment_time
       });
+      setLastBookedEvent({
+        title: `תור למספרת FRIZURA - ${formData.service_type}`,
+        date: formData.appointment_date,
+        time: formData.appointment_time,
+        duration_minutes: 60,
+        location: "קפלן 5, אזור",
+        description: `תור למספרת FRIZURA עבור ${formData.first_name} ${formData.last_name}. שירות: ${formData.service_type} (ספר/ית: ${formData.employee}). טלפון: 054-2002400.`
+      });
       setBookingSuccess(true);
-      setTimeout(() => {
-        setShowBooking(false);
-        setBookingSuccess(false);
-        setFormData({ first_name: '', last_name: '', phone: '', email: '', city: '', service_type: '', employee: '', notes: '', appointment_date: '', appointment_time: '' });
-      }, 3000);
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 409) {
@@ -90,6 +159,8 @@ export default function CustomerHome() {
 
   const openBooking = (service: string) => {
     setBookingService(service);
+    setLastBookedEvent(null);
+    setBookingSuccess(false);
     setShowBooking(true);
   };
 
@@ -127,10 +198,29 @@ export default function CustomerHome() {
             <p className="text-gray-600 mb-6">שירות מבוקש: <strong>{bookingService}</strong></p>
             
             {bookingSuccess ? (
-              <div className="text-center py-8">
-                <div className="text-green-500 text-5xl mb-4">✓</div>
-                <h3 className="text-xl font-bold">הבקשה נשלחה בהצלחה!</h3>
-                <p>נציג שלנו יחזור אליך בהקדם לתיאום התור.</p>
+              <div className="text-center py-6 flex flex-col items-center gap-3">
+                <div className="text-green-500 text-5xl">✓</div>
+                <h3 className="text-xl font-bold text-gray-900">הבקשה נקלטה בהצלחה!</h3>
+                <p className="text-gray-600 text-sm">התור נרשם במערכת ונשמר עבורך.</p>
+                {lastBookedEvent && (
+                  <div className="mt-2 w-full p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
+                    <p className="text-xs text-blue-900 font-semibold mb-2">האם תרצה להוסיף את הפגישה ליומן Google שלך?</p>
+                    <a
+                      href={createGoogleCalendarUrl(lastBookedEvent)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow transition"
+                    >
+                      <span>📅</span> הוסף ליומן Google
+                    </a>
+                  </div>
+                )}
+                <button 
+                  onClick={() => setShowBooking(false)}
+                  className="mt-3 text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  סגור חלון
+                </button>
               </div>
             ) : (
               <form onSubmit={handleBookingSubmit} className="flex flex-col gap-4">
@@ -210,8 +300,31 @@ export default function CustomerHome() {
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-gray-50">
             {messages.map((msg, i) => (
               <div key={i} className="flex flex-col gap-2">
-                <div className={`p-3 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-[#c9a962] text-white self-end rounded-br-none' : 'bg-white border text-gray-800 self-start rounded-bl-none'}`}>
+                <div className={`p-3 rounded-lg max-w-[85%] ${msg.role === 'user' ? 'bg-[#c9a962] text-white self-end rounded-br-none' : 'bg-white border text-gray-800 self-start rounded-bl-none shadow-sm'}`}>
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  
+                  {/* Google Calendar Action Card */}
+                  {msg.calendar_event && (
+                    <div className="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-950 flex flex-col gap-1.5">
+                      <div className="font-bold flex items-center gap-1">
+                        <span>📅</span> {msg.calendar_event.title}
+                      </div>
+                      <div className="text-gray-600">
+                        📍 {msg.calendar_event.location || 'קפלן 5, אזור'}
+                      </div>
+                      <div className="text-gray-600">
+                        ⏰ תאריך ושעה: {msg.calendar_event.date} בשעה {msg.calendar_event.time}
+                      </div>
+                      <a 
+                        href={createGoogleCalendarUrl(msg.calendar_event)} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="mt-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded text-center transition flex items-center justify-center gap-1 shadow-sm"
+                      >
+                        <span>➕</span> הוסף ליומן Google
+                      </a>
+                    </div>
+                  )}
                 </div>
                 {msg.options && msg.options.length > 0 && msg.role === 'model' && i === messages.length - 1 && !isLoading && (
                   <div className="flex flex-wrap gap-2 mt-1 self-start">
@@ -219,7 +332,11 @@ export default function CustomerHome() {
                       <button 
                         key={idx} 
                         onClick={() => sendMessage(opt)}
-                        className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-xs hover:bg-blue-100 transition"
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                          opt.includes('יומן') 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm font-bold' 
+                            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                        }`}
                       >
                         {opt}
                       </button>
