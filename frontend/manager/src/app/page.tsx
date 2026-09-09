@@ -113,13 +113,19 @@ export default function ManagerDashboard() {
       setToken(accessToken);
       localStorage.setItem("manager_token", accessToken);
     } catch (err: any) {
+      console.error("Login failed:", err);
+      let msg = "שגיאה בהתחברות לשרת.";
       if (err.response?.status === 401) {
-        setError("אימייל או סיסמה שגויים. (ברירת מחדל: admin@frizura.com / Password123!)");
+        msg = "אימייל או סיסמה שגויים. (ברירת מחדל: admin@frizura.com / Password123!)";
       } else if (err.response?.status === 429) {
-        setError("יותר מדי ניסיונות התחברות בדקה. אנא המתן 60 שניות ונסה שוב.");
+        msg = "הגבלת ניסיונות. אנא המתן דקה ונסה שוב.";
+      } else if (err.code === "ERR_NETWORK" || !err.response) {
+        msg = `שגיאת רשת (ERR_NETWORK): לא ניתן להגיע לשרת הבקאנד ב-${apiUrl}. ודא שפורט 8000 פועל.`;
       } else {
-        setError(err.response?.data?.detail || "שגיאה בהתחברות. ודא שהשרת פועל ונסה שנית.");
+        msg = `שגיאה (${err.response?.status}): ${err.response?.data?.detail || err.message}`;
       }
+      setError(msg);
+      alert(msg);
     }
   };
 

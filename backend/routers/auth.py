@@ -13,7 +13,7 @@ from backend.main import limiter
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/login", response_model=Token)
-@limiter.limit("5/minute")
+@limiter.limit("60/minute")
 async def login_access_token(
     request: Request,
     db: AsyncSession = Depends(get_db),
