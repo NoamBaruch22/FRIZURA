@@ -104,13 +104,21 @@ export default function ManagerDashboard() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     try {
-      const res = await axios.post(`${apiUrl}/api/auth/login`, new URLSearchParams({ username: email, password: password }));
+      const res = await axios.post(`${apiUrl}/api/auth/login`, new URLSearchParams({ username: email.trim(), password: password }));
       const accessToken = res.data.access_token;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       setToken(accessToken);
       localStorage.setItem("manager_token", accessToken);
-    } catch (err) {
-      setError("שגיאה בהתחברות. אנא בדוק את הפרטים.");
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError("אימייל או סיסמה שגויים. (ברירת מחדל: admin@frizura.com / Password123!)");
+      } else if (err.response?.status === 429) {
+        setError("יותר מדי ניסיונות התחברות בדקה. אנא המתן 60 שניות ונסה שוב.");
+      } else {
+        setError(err.response?.data?.detail || "שגיאה בהתחברות. ודא שהשרת פועל ונסה שנית.");
+      }
     }
   };
 
