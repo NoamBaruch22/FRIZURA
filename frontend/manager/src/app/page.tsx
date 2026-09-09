@@ -363,6 +363,19 @@ export default function ManagerDashboard() {
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border rounded p-2 text-left" dir="ltr" placeholder="••••••••" required />
           </div>
           <button type="submit" className="w-full bg-[#c9a962] text-white py-3 rounded-lg font-bold hover:bg-yellow-600 transition shadow">היכנס למערכת</button>
+
+          <div className="mt-4 pt-4 border-t text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("admin@frizura.com");
+                setPassword("Password123!");
+              }}
+              className="text-xs text-blue-600 hover:underline font-medium"
+            >
+              🔑 מילוי אוטומטי של פרטי מנהל (admin@frizura.com)
+            </button>
+          </div>
         </form>
       </div>
     );
