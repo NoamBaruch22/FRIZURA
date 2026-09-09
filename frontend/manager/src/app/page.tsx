@@ -486,6 +486,7 @@ export default function ManagerDashboard() {
                   <tr className="border-b text-gray-500 text-sm">
                     <th className="pb-3">שם הלקוח</th>
                     <th className="pb-3">טלפון</th>
+                    <th className="pb-3">עיר מגורים</th>
                     <th className="pb-3">שירות ועובד</th>
                     <th className="pb-3">תאריך</th>
                     <th className="pb-3">שעה</th>
@@ -509,7 +510,8 @@ export default function ManagerDashboard() {
                             {clientName}
                           </button>
                         </td>
-                        <td className="py-3 text-gray-600" dir="ltr">{client?.phone || '-'}</td>
+                        <td className="py-3 text-gray-600 font-mono text-sm" dir="ltr">{client?.phone || '-'}</td>
+                        <td className="py-3 text-gray-700 text-sm font-medium">{client?.city || '-'}</td>
                         <td className="py-3">{appt.service}</td>
                         <td className="py-3 font-medium text-blue-700"><span dir="ltr">{formatDate(appt.appointment_date)}</span></td>
                         <td className="py-3 font-medium text-blue-700"><span dir="ltr">{appt.appointment_time?.substring(0, 5)}</span></td>
@@ -718,6 +720,7 @@ export default function ManagerDashboard() {
                     <th className="pb-3">מס' קבלה</th>
                     <th className="pb-3">שם הלקוח</th>
                     <th className="pb-3">טלפון</th>
+                    <th className="pb-3">עיר מגורים</th>
                     <th className="pb-3">סכום לתשלום</th>
                     <th className="pb-3">תיאור שירות / מוצר</th>
                     <th className="pb-3">תאריך הפקה</th>
@@ -739,7 +742,8 @@ export default function ManagerDashboard() {
                             {client ? `${client.first_name} ${client.last_name}` : `לקוח #${inv.client_id}`}
                           </button>
                         </td>
-                        <td className="py-3 text-gray-600" dir="ltr">{client?.phone || '-'}</td>
+                        <td className="py-3 text-gray-600 font-mono text-sm" dir="ltr">{client?.phone || '-'}</td>
+                        <td className="py-3 text-gray-700 text-sm font-medium">{client?.city || '-'}</td>
                         <td className="py-3 font-bold text-green-700 text-lg">₪{inv.amount}</td>
                         <td className="py-3">{inv.service_description}</td>
                         <td className="py-3 text-gray-600 font-medium"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
