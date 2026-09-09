@@ -7,16 +7,26 @@ class ClientBase(BaseModel):
     last_name: str
     phone: str
     email: Optional[EmailStr] = None
+    city: Optional[str] = None
+    source: Optional[str] = "מנהל ידני"
     notes: Optional[str] = None
 
-class ClientCreate(ClientBase):
-    pass
+class ClientCreate(BaseModel):
+    first_name: str
+    last_name: str
+    phone: str
+    email: EmailStr
+    city: Optional[str] = None
+    source: Optional[str] = "מנהל ידני"
+    notes: Optional[str] = None
 
 class ClientUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
+    city: Optional[str] = None
+    source: Optional[str] = None
     notes: Optional[str] = None
 
 class ClientResponse(ClientBase):

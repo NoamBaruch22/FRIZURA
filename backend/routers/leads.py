@@ -40,10 +40,45 @@ async def convert_lead(lead_id: int, db: AsyncSession = Depends(get_db), current
         first_name=lead.first_name,
         last_name=lead.last_name,
         phone=lead.phone,
-        notes=f"Converted from lead. Source: {lead.source}"
+        source=f"ליד: {lead.source}" if lead.source else "ליד שהומר",
+        notes=lead.notes
     )
     lead.status = "הפך ללקוח"
     db.add(new_client)
     await db.commit()
     await db.refresh(new_client)
     return new_client
+
+@router.patch("/{lead_id}", response_model=LeadResponse)
+async def update_lead(
+    lead_id: int,
+    lead_update: LeadUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_manager = Depends(get_current_manager)
+):
+    result = await db.execute(select(Lead).filter(Lead.id == lead_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+        
+    update_data = lead_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(lead, field, value)
+        
+    await db.commit()
+    await db.refresh(lead)
+    return lead
+
+@router.delete("/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lead(
+    lead_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_manager = Depends(get_current_manager)
+):
+    result = await db.execute(select(Lead).filter(Lead.id == lead_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+        
+    await db.delete(lead)
+    await db.commit()

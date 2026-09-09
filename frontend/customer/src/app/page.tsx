@@ -17,6 +17,10 @@ export default function CustomerHome() {
     first_name: '',
     last_name: '',
     phone: '',
+    email: '',
+    city: '',
+    service_type: '',
+    employee: '',
     notes: '',
     appointment_date: '',
     appointment_time: ''
@@ -42,7 +46,7 @@ export default function CustomerHome() {
       setMessages([...newMessages, { role: 'model', content: response.data.reply, options: response.data.options }]);
     } catch (error) {
       console.error(error);
-      setMessages([...newMessages, { role: 'model', content: 'מצטערים, חלה שגיאה בתקשורת עם השרת.' }]);
+      setMessages([...newMessages, { role: 'model', content: 'מצטערים, המערכת החכמה שלנו חווה כרגע עומס זמני או שגיאת התחברות לשרתי Google. אנא נסה שנית בעוד כמה דקות.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -50,14 +54,21 @@ export default function CustomerHome() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!formData.email || !emailRegex.test(formData.email.trim())) {
+      alert("אנא הזן כתובת אימייל תקינה (למשל name@example.com).");
+      return;
+    }
     try {
       const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
       await axios.post(`${apiUrl}/api/appointments/book_public`, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
-        email: formData.email,
+        email: formData.email.trim(),
+        city: formData.city || undefined,
         service: `${formData.service_type} (עם: ${formData.employee})`,
+        notes: formData.notes || undefined,
         appointment_date: formData.appointment_date,
         appointment_time: formData.appointment_time
       });
@@ -65,14 +76,14 @@ export default function CustomerHome() {
       setTimeout(() => {
         setShowBooking(false);
         setBookingSuccess(false);
-        setFormData({ first_name: '', last_name: '', phone: '', notes: '', appointment_date: '', appointment_time: '' });
+        setFormData({ first_name: '', last_name: '', phone: '', email: '', city: '', service_type: '', employee: '', notes: '', appointment_date: '', appointment_time: '' });
       }, 3000);
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 409) {
         alert("השעה תפוסה! יש כבר תור בטווח של שעה מהזמן שבחרת. אנא בחר שעה אחרת.");
       } else {
-        alert("שגיאה בשליחת הבקשה. אנא נסה שנית.");
+        alert("שגיאה בשליחת הבקשה. אנא ודא שכל הפרטים מולאו כראוי ונסה שנית.");
       }
     }
   };
@@ -179,6 +190,7 @@ export default function CustomerHome() {
 <option value="19:30">19:30</option>
 </select>
                 </div>
+                <input type="text" placeholder="עיר מגורים (לא חובה)" className="border p-2 rounded" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                 <textarea placeholder="הערות נוספות (לא חובה)" className="border p-2 rounded h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})}></textarea>
                 <button type="submit" className="bg-[#1a2332] text-white p-3 rounded-xl font-bold hover:bg-gray-800 mt-2">שלח בקשה לתור</button>
               </form>

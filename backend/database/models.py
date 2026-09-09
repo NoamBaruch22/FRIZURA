@@ -25,6 +25,8 @@ class Client(Base):
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(String(50), default="מנהל ידני", nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

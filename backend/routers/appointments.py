@@ -97,8 +97,11 @@ async def create_public_booking(
     client_result = await db.execute(select(Client).filter(Client.phone == booking_in.phone))
     client = client_result.scalars().first()
     
-    if client and not client.email and booking_in.email:
-        client.email = booking_in.email
+    if client:
+        if not client.email and booking_in.email:
+            client.email = booking_in.email
+        if not client.city and booking_in.city:
+            client.city = booking_in.city
         await db.commit()
     
     if not client:
@@ -107,7 +110,9 @@ async def create_public_booking(
             last_name=booking_in.last_name,
             phone=booking_in.phone,
             email=booking_in.email,
-            notes="Auto-created from public booking"
+            city=booking_in.city,
+            source="טופס אתר",
+            notes=booking_in.notes
         )
         db.add(client)
         await db.commit()
@@ -125,6 +130,29 @@ async def create_public_booking(
     await db.commit()
     await db.refresh(new_appt)
     return new_appt
+
+@router.patch("/{appt_id}", response_model=AppointmentResponse)
+async def update_appointment(
+    appt_id: int,
+    appt_update: AppointmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Manager = Depends(get_current_manager)
+) -> Any:
+    """
+    Update an appointment's status, date, time or service.
+    """
+    result = await db.execute(select(Appointment).filter(Appointment.id == appt_id))
+    appt = result.scalars().first()
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+        
+    update_data = appt_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(appt, field, value)
+        
+    await db.commit()
+    await db.refresh(appt)
+    return appt
 
 @router.delete("/{appt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_appointment(

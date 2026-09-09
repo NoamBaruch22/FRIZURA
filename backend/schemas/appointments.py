@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import date, time, datetime
 from typing import Optional
 
@@ -29,7 +29,9 @@ class PublicBooking(BaseModel):
     first_name: str
     last_name: str
     phone: str
-    email: str
+    email: EmailStr
     service: str
+    city: Optional[str] = None
+    notes: Optional[str] = None
     appointment_date: date
     appointment_time: time
