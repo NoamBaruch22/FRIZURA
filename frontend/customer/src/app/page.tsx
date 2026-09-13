@@ -551,7 +551,9 @@ export default function CustomerHome() {
                 </div>
                 {msg.options && msg.options.length > 0 && msg.role === 'model' && i === messages.length - 1 && !isLoading && (
                   <div className="flex flex-wrap gap-2 mt-1 self-start">
-                    {msg.options.map((opt, idx) => (
+                    {msg.options
+                      .filter(opt => !(msg.calendar_event && (opt.includes('יומן') || opt.includes('Google') || opt.includes('גוגל'))))
+                      .map((opt, idx) => (
                       <button 
                         key={idx} 
                         onClick={() => sendMessage(opt)}

@@ -24,13 +24,20 @@ class ChatbotService:
         4. דוד (David) - תספורת גברים קלאסית, דירוגים, זקן
         5. נועם (Noam) - כימיה לשיער, שיקום שיער, תספורות נשים מיוחדות
         
-        Important Booking Flow Guidelines:
-        1. Guide the user through booking by asking ONE question at a time.
-        2. First ask if they want a men's or women's service, or what specific service they need.
-        3. Then suggest the relevant barbers for that service.
-        4. Then ask for a preferred date/time.
-        5. Finally, ask for their full name, phone number, and city/email if available.
-        6. Once you have service, barber, date (YYYY-MM-DD), time (HH:MM), full name, and phone number, execute the "book_appointment" action!
+        Critical Hebrew Terminology Rule:
+        - NEVER write "אחה״כ" when referring to times of day (afternoon)!
+        - ALWAYS write "אחה״צ" (קיצור של אחר הצהריים). For example: "בשעות הבוקר או אחה״צ?", "יש תור ב-16:00 אחה״צ".
+        
+        Step-by-Step Booking Flow Guidelines (Ask ONE question at a time):
+        Step 1 - Service: Ask if they want a men's or women's haircut/service, or what specific service they need.
+        Step 2 - Stylist/Barber: Suggest relevant staff members for that service (Dani/David for men, Yael/Shiran/Noam for women).
+        Step 3 - Date and Time: Ask for preferred date and time (Remember: use "אחה״צ" for afternoon, never "אחה״כ").
+        Step 4 - Full Name and Phone: Ask for client's full name (first and last) and mobile phone number.
+        Step 5 - Valid Email Address: Ask for a valid email address ("מהי כתובת הדוא״ל (אימייל) שלך לקבלת אישור התור?").
+                 Validate that it has an '@' and a domain (e.g. name@example.com). If the input is not a valid email, politely ask again for a valid email address.
+        Step 6 - City: Ask explicitly: "תרצה להוסיף עיר מגורים?" with options: ["דלג", "תל אביב", "אזור", "חולון", "ראשון לציון"] (or user can type any city).
+        Step 7 - Notes: Ask explicitly: "תרצה להוסיף הערה כלשהי?" with options: ["ללא הערות", "בקשה מיוחדת"] (or user can type any note).
+        Step 8 - Execution: Once you have all the information (service, barber, date in YYYY-MM-DD, time in HH:MM, name, phone, valid email, city, notes), execute the "book_appointment" action!
         
         You have internal tools to check, book, and update appointments!
         If a user asks "מתי התור שלי?" (When is my appointment?), ask for their phone number.
@@ -53,20 +60,33 @@ class ChatbotService:
         "action": {"name": "update_appointment", "appointment_id": 12, "new_date": "2026-10-01", "new_time": "14:30"}
         
         To book a new appointment, set action:
-        "action": {"name": "book_appointment", "first_name": "ישראל", "last_name": "ישראלי", "phone": "0501234567", "email": "israel@gmail.com", "city": "תל אביב", "service": "תספורת גברים וזקן (עם: דני)", "appointment_date": "2026-10-15", "appointment_time": "14:00"}
+        "action": {
+            "name": "book_appointment", 
+            "first_name": "ישראל", 
+            "last_name": "ישראלי", 
+            "phone": "0501234567", 
+            "email": "israel@gmail.com", 
+            "city": "תל אביב", 
+            "notes": "שיער ארוך",
+            "service": "תספורת גברים וזקן (עם: דני)", 
+            "employee": "דני",
+            "appointment_date": "2026-10-15", 
+            "appointment_time": "14:00"
+        }
         
-        Whenever an appointment is successfully booked or updated, always ask the client:
-        "האם תרצה להוסיף את הפגישה ליומן Google שלך? 📅"
-        and provide options: ["כן, הוסף ליומן גוגל", "לא תודה"].
-        Also include the "calendar_event" object in your JSON when an appointment is booked or confirmed:
+        When an appointment is successfully booked or confirmed:
+        - Include the "calendar_event" object in your JSON:
         "calendar_event": {
-           "title": "תור למספרת FRIZURA - תספורת גברים",
+           "title": "תור למספרת FRIZURA - תספורת גברים וזקן (עם: דני)",
            "date": "2026-10-15",
            "time": "14:00",
            "duration_minutes": 60,
            "location": "קפלן 5, אזור",
-           "description": "תור למספרת FRIZURA עבור תספורת גברים עם דני. טלפון לבירורים: 054-2002400"
+           "description": "תור למספרת FRIZURA עבור ישראל ישראלי. שירות: תספורת גברים וזקן (עם: דני). טלפון לבירורים: 054-2002400."
         }
+        - In "reply", confirm all booking details and state that they can add it to Google Calendar using the button in the calendar card below 📅.
+        - In "options", provide simple follow-up options like: ["תודה רבה!", "קביעת תור נוסף"].
+          DO NOT put "הוסף ליומן Google" in options, as the calendar card widget already has the action button!
         
         If you set an action other than "none", the system will intercept it, run the DB query, and provide you the result in the next message so you can reply to the user.
         Do not wrap the JSON in Markdown code blocks like ```json.
@@ -118,6 +138,11 @@ class ChatbotService:
         phone = data.get("phone", "").strip()
         email = data.get("email", "").strip() or None
         city = data.get("city", "").strip() or None
+        if city and any(k in city for k in ["דלג", "ללא", "אין", "לא"]):
+            city = None
+        notes = data.get("notes", "").strip() or None
+        if notes and any(k in notes for k in ["ללא", "אין", "דלג", "לא"]):
+            notes = None
         service = data.get("service", "תספורת כללית")
         date_str = data.get("appointment_date", "")
         time_str = data.get("appointment_time", "")
@@ -168,10 +193,12 @@ class ChatbotService:
         # Find or create client
         client = (await db.execute(select(Client).filter(Client.phone == phone))).scalars().first()
         if client:
-            if not client.email and email:
+            if email and not client.email:
                 client.email = email
-            if not client.city and city:
+            if city and not client.city:
                 client.city = city
+            if notes:
+                client.notes = f"{client.notes}\n{notes}" if client.notes else notes
             await db.commit()
         else:
             client = Client(
@@ -181,7 +208,7 @@ class ChatbotService:
                 email=email,
                 city=city,
                 source="צ׳אט בוט",
-                notes="נוצר אוטומטית באמצעות הצ׳אט בוט של FRIZURA"
+                notes=notes or "נוצר אוטומטית באמצעות הצ׳אט בוט של FRIZURA"
             )
             db.add(client)
             await db.commit()
@@ -190,6 +217,7 @@ class ChatbotService:
         new_appt = Appointment(
             client_id=client.id,
             service=service,
+            employee=target_emp,
             appointment_date=parsed_date,
             appointment_time=parsed_time,
             status="ממתין לאישור"
@@ -203,10 +231,24 @@ class ChatbotService:
             "appointment_id": new_appt.id,
             "client_name": f"{client.first_name} {client.last_name}",
             "service": service,
+            "employee": target_emp,
             "date": parsed_date.isoformat(),
             "time": parsed_time.strftime("%H:%M"),
             "location": "קפלן 5, אזור"
         })
+
+    def _sanitize_response(self, res_dict: dict) -> dict:
+        def clean_txt(t: str) -> str:
+            if not isinstance(t, str):
+                return t
+            return t.replace("אחה״כ", "אחה״צ").replace("אחה\"כ", "אחה״צ").replace("אחהכ", "אחה״צ")
+
+        if isinstance(res_dict, dict):
+            if "reply" in res_dict:
+                res_dict["reply"] = clean_txt(res_dict["reply"])
+            if "options" in res_dict and isinstance(res_dict["options"], list):
+                res_dict["options"] = [clean_txt(opt) for opt in res_dict["options"]]
+        return res_dict
 
     async def process_chat(self, db: AsyncSession, phone: str, messages: list):
         history = []
@@ -249,7 +291,7 @@ class ChatbotService:
             action_name = action.get("name", "none")
             
             if action_name == "none":
-                return data
+                return self._sanitize_response(data)
                 
             # Execute the action!
             history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
@@ -270,7 +312,7 @@ class ChatbotService:
                 action_result = json.dumps({"status": "error", "message": "Unknown action"})
                 
             # Feed result back to model as a user message (system simulation)
-            history.append(types.Content(role="user", parts=[types.Part.from_text(text=f"<system_tool_result>{action_result}</system_tool_result> Please summarize this for the user in Hebrew. If successful, confirm the appointment and ask if they would like to add it to Google Calendar.")]))
+            history.append(types.Content(role="user", parts=[types.Part.from_text(text=f"<system_tool_result>{action_result}</system_tool_result> Please summarize this for the user in Hebrew. Confirm the appointment and tell them they can click the calendar card below to save it in Google Calendar.")]))
             
             # Recurse
             recurse_res = await self._generate_with_actions(db, history, depth + 1)
@@ -287,13 +329,17 @@ class ChatbotService:
                             "location": "קפלן 5, אזור",
                             "description": f"תור ב-FRIZURA עבור {parsed_res.get('client_name')}. שירות: {parsed_res.get('service')}. טלפון לבירורים: 054-2002400."
                         }
-                        if not recurse_res.get("options"):
-                            recurse_res["options"] = ["📅 הוסף ליומן Google", "תודה, אין צורך"]
-                        elif "📅 הוסף ליומן Google" not in recurse_res.get("options", []):
-                            recurse_res["options"].insert(0, "📅 הוסף ליומן Google")
+                        # Clean options so no duplicate calendar buttons appear in options
+                        clean_opts = [
+                            opt for opt in recurse_res.get("options", [])
+                            if not any(k in opt for k in ["יומן", "Google", "גוגל", "calendar"])
+                        ]
+                        if not clean_opts:
+                            clean_opts = ["תודה רבה!", "קביעת תור נוסף"]
+                        recurse_res["options"] = clean_opts
                 except Exception:
                     pass
-            return recurse_res
+            return self._sanitize_response(recurse_res)
             
         except Exception as e:
             print(f"Gemini API Error: {e}")
