@@ -87,7 +87,7 @@ export default function CustomerHome() {
         window.open(createGoogleCalendarUrl(lastWithCalendar.calendar_event), '_blank');
         setMessages(prev => [...prev, 
           { role: 'user', content: 'כן, הוסף ליומן גוגל' },
-          { role: 'model', content: 'מעולה! פתחתי עבורך את יומן Google עם כל פרטי הפגישה. נשמח לראותך! ✂️' }
+          { role: 'model', content: 'מעולה! פתחתי עבורך את יומן Google עם כל פרטי הפגישה. נשמח לראותך!' }
         ]);
         return;
       }
@@ -99,7 +99,7 @@ export default function CustomerHome() {
     setIsLoading(true);
     
     try {
-      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
+      const apiUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000` : 'http://localhost:8000';
       const response = await axios.post(`${apiUrl}/api/chatbot/chat`, {
         phone: "guest",
         messages: newMessages
@@ -126,7 +126,7 @@ export default function CustomerHome() {
       return;
     }
     try {
-      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '';
+      const apiUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000` : 'http://localhost:8000';
       await axios.post(`${apiUrl}/api/appointments/book_public`, {
         first_name: formData.first_name,
         last_name: formData.last_name,

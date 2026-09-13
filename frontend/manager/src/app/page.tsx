@@ -31,8 +31,10 @@ export default function ManagerDashboard() {
   const [selectedClientForDossier, setSelectedClientForDossier] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
 
-  // Direct backend API endpoint
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+  // Direct backend API endpoint matching the browser's hostname (e.g. localhost or 127.0.0.1)
+  const apiUrl = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`)
+    : 'http://localhost:8000';
 
   // Helpers
   const formatDate = (dateStr: string) => {
@@ -50,33 +52,39 @@ export default function ManagerDashboard() {
     return map;
   }, [clients]);
 
+  // Compute upcoming future appointments sorted chronologically
+  const upcomingAppointments = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return [...appointments]
+      .filter(a => a.appointment_date >= todayStr && a.status !== 'בוטל')
+      .sort((a, b) => {
+        const dtA = `${a.appointment_date} ${a.appointment_time}`;
+        const dtB = `${b.appointment_date} ${b.appointment_time}`;
+        return dtA.localeCompare(dtB);
+      });
+  }, [appointments]);
+
   useEffect(() => {
     const storedToken = localStorage.getItem("manager_token");
-    if (storedToken) setToken(storedToken);
+    if (storedToken) {
+      setToken(storedToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+      fetchData(storedToken);
+    }
   }, []);
 
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchData();
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (activeTab === 'archive') {
-      fetchArchive();
-    }
-  }, [activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = async (overrideToken?: string) => {
+    const currentToken = overrideToken || token || localStorage.getItem("manager_token");
+    if (!currentToken) return;
     setLoading(true);
+    const headers = { Authorization: `Bearer ${currentToken}` };
     try {
       const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes] = await Promise.all([
-        axios.get(`${apiUrl}/api/appointments/`),
-        axios.get(`${apiUrl}/api/leads/`),
-        axios.get(`${apiUrl}/api/clients/`),
-        axios.get(`${apiUrl}/api/invoices/`),
-        axios.get(`${apiUrl}/api/settings/`)
+        axios.get(`${apiUrl}/api/appointments/`, { headers }),
+        axios.get(`${apiUrl}/api/leads/`, { headers }),
+        axios.get(`${apiUrl}/api/clients/`, { headers }),
+        axios.get(`${apiUrl}/api/invoices/`, { headers }),
+        axios.get(`${apiUrl}/api/settings/`, { headers })
       ]);
       setAppointments(apptsRes.data);
       setLeads(leadsRes.data);
@@ -84,18 +92,29 @@ export default function ManagerDashboard() {
       setInvoices(invoicesRes.data);
       setSettings(settingsRes.data);
     } catch (err: any) {
-      if (err.response?.status === 401) handleLogout();
+      console.error("fetchData failed:", err);
+      if (err.response?.status === 401) {
+        handleLogout();
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (activeTab === 'archive') {
+      fetchArchive();
+    }
+  }, [activeTab]);
+
   const fetchArchive = async () => {
+    const currentToken = token || localStorage.getItem("manager_token");
+    const headers = currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
     try {
       const [clientsRes, apptsRes, invRes] = await Promise.all([
-        axios.get(`${apiUrl}/api/clients/archive`),
-        axios.get(`${apiUrl}/api/appointments/archive`),
-        axios.get(`${apiUrl}/api/invoices/archive`)
+        axios.get(`${apiUrl}/api/clients/archive`, { headers }),
+        axios.get(`${apiUrl}/api/appointments/archive`, { headers }),
+        axios.get(`${apiUrl}/api/invoices/archive`, { headers })
       ]);
       setArchivedClients(clientsRes.data);
       setArchivedAppointments(apptsRes.data);
@@ -110,8 +129,9 @@ export default function ManagerDashboard() {
       const res = await axios.post(`${apiUrl}/api/auth/login`, new URLSearchParams({ username: email.trim(), password: password }));
       const accessToken = res.data.access_token;
       axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-      setToken(accessToken);
       localStorage.setItem("manager_token", accessToken);
+      setToken(accessToken);
+      await fetchData(accessToken);
     } catch (err: any) {
       console.error("Login failed:", err);
       let msg = "שגיאה בהתחברות לשרת.";
@@ -132,6 +152,7 @@ export default function ManagerDashboard() {
   const handleLogout = () => {
     setToken("");
     localStorage.removeItem("manager_token");
+    delete axios.defaults.headers.common['Authorization'];
   };
 
   // WhatsApp Integration
@@ -147,7 +168,7 @@ export default function ManagerDashboard() {
     const clientName = client ? `${client.first_name} ${client.last_name}` : 'לקוח יקר';
     const timeFormatted = appt.appointment_time?.substring(0, 5) || '';
     const dateFormatted = formatDate(appt.appointment_date);
-    const message = `שלום ${clientName}, תזכורת לתורך במספרת FRIZURA בתאריך ${dateFormatted} בשעה ${timeFormatted} עבור ${appt.service}. נשמח לראותך! ✂️`;
+    const message = `שלום ${clientName}, תזכורת לתורך במספרת FRIZURA בתאריך ${dateFormatted} בשעה ${timeFormatted} עבור ${appt.service}. נשמח לראותך!`;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -159,7 +180,7 @@ export default function ManagerDashboard() {
     }
     const cleanPhone = phone.replace(/\D/g, '');
     const intlPhone = cleanPhone.startsWith('0') ? `972${cleanPhone.slice(1)}` : cleanPhone;
-    const message = `שלום ${lead.first_name}, תודה על פנייתך למספרת FRIZURA! ✂️ נשמח לתאם עבורך תור או לענות על כל שאלה.`;
+    const message = `שלום ${lead.first_name}, תודה על פנייתך למספרת FRIZURA! נשמח לתאם עבורך תור או לענות על כל שאלה.`;
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -441,7 +462,7 @@ export default function ManagerDashboard() {
               <h2 className="text-xl font-bold text-[#1a2332]">תורים קרובים להיום והשבוע</h2>
               <button onClick={() => setActiveTab('appointments')} className="text-blue-600 text-sm font-bold hover:underline">כל התורים ביומן ←</button>
             </div>
-            {appointments.length === 0 ? <p className="text-gray-500">אין תורים קרובים במערכת.</p> : (
+            {upcomingAppointments.length === 0 && appointments.length === 0 ? <p className="text-gray-500">אין תורים במערכת.</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-right border-collapse">
                   <thead>
@@ -456,7 +477,7 @@ export default function ManagerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {appointments.slice(0, 5).map(appt => {
+                    {(upcomingAppointments.length > 0 ? upcomingAppointments : appointments.filter(a => a.status !== 'בוטל')).slice(0, 8).map(appt => {
                       const client = clientsMap.get(appt.client_id);
                       return (
                         <tr key={appt.id} className="border-b hover:bg-gray-50">
@@ -477,7 +498,8 @@ export default function ManagerDashboard() {
                           <td className="py-3">
                             <button 
                               onClick={() => sendWhatsAppReminder(appt)} 
-                              className="bg-green-50 text-green-700 hover:bg-green-600 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-green-200"
+                              className="bg-green-50 text-green-700 hover:bg-green-600 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-green-200 shadow-sm"
+                              title="שלח תזכורת תור בוואטסאפ"
                             >
                               <span>💬</span> וואטסאפ
                             </button>
@@ -603,6 +625,7 @@ export default function ManagerDashboard() {
                     <th className="pb-3">שם</th>
                     <th className="pb-3">טלפון</th>
                     <th className="pb-3">מקור הגעה</th>
+                    <th className="pb-3">תאריך פנייה</th>
                     <th className="pb-3">סטטוס פנייה</th>
                     <th className="pb-3">הערות</th>
                     <th className="pb-3">פעולות CRM</th>
@@ -614,6 +637,7 @@ export default function ManagerDashboard() {
                       <td className="py-3 font-bold text-[#1a2332]">{lead.first_name} {lead.last_name}</td>
                       <td className="py-3 text-gray-700" dir="ltr">{lead.phone}</td>
                       <td className="py-3"><span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">{lead.source || 'כללי'}</span></td>
+                      <td className="py-3 font-medium text-blue-600"><span dir="ltr">{lead.created_at ? formatDate(lead.created_at.split('T')[0]) : '-'}</span></td>
                       <td className="py-3">
                         <select
                           value={lead.status}
