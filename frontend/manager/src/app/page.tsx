@@ -30,6 +30,8 @@ export default function ManagerDashboard() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedClientForDossier, setSelectedClientForDossier] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [editingClientNotesId, setEditingClientNotesId] = useState<number | null>(null);
+  const [editingNotesText, setEditingNotesText] = useState("");
 
   // Direct backend API endpoint matching the browser's hostname (e.g. localhost or 127.0.0.1)
   const apiUrl = typeof window !== 'undefined'
@@ -204,6 +206,22 @@ export default function ManagerDashboard() {
       alert("הלקוח נוצר בהצלחה!");
     } catch (err: any) { 
       alert(err.response?.data?.detail || 'שגיאה ביצירת לקוח'); 
+    }
+  };
+
+  const updateClientNotes = async (clientId: number, newNotes: string) => {
+    try {
+      const currentToken = token || localStorage.getItem("manager_token");
+      await axios.patch(`${apiUrl}/api/clients/${clientId}`, { notes: newNotes.trim() || null }, {
+        headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+      });
+      setEditingClientNotesId(null);
+      setClients(prev => prev.map(c => c.id === clientId ? { ...c, notes: newNotes.trim() || null } : c));
+      if (selectedClientForDossier && selectedClientForDossier.id === clientId) {
+        setSelectedClientForDossier((prev: any) => prev ? { ...prev, notes: newNotes.trim() || null } : null);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'שגיאה בעדכון הערה');
     }
   };
 
@@ -710,8 +728,9 @@ export default function ManagerDashboard() {
                     <th className="pb-3">טלפון</th>
                     <th className="pb-3">אימייל</th>
                     <th className="pb-3">עיר מגורים</th>
+                    <th className="pb-3">תאריך רישום</th>
                     <th className="pb-3">מקור רישום</th>
-                    <th className="pb-3">הערות</th>
+                    <th className="pb-3">הערות (לחץ לעריכה ✏️)</th>
                     <th className="pb-3">פעולות</th>
                   </tr>
                 </thead>
@@ -722,6 +741,9 @@ export default function ManagerDashboard() {
                       <td className="py-3 text-gray-700 font-mono text-sm" dir="ltr">{client.phone}</td>
                       <td className="py-3 text-gray-600 font-mono text-xs" dir="ltr">{client.email || '-'}</td>
                       <td className="py-3 font-medium text-gray-800">{client.city || '-'}</td>
+                      <td className="py-3 font-medium text-blue-600">
+                        <span dir="ltr">{client.created_at ? formatDate(client.created_at.split('T')[0]) : '-'}</span>
+                      </td>
                       <td className="py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           client.source === 'טופס אתר' ? 'bg-purple-100 text-purple-800' :
@@ -731,7 +753,52 @@ export default function ManagerDashboard() {
                           {client.source || 'מנהל ידני'}
                         </span>
                       </td>
-                      <td className="py-3 text-gray-500 text-sm max-w-xs truncate">{client.notes || '-'}</td>
+                      <td className="py-3 text-sm min-w-[200px] max-w-xs">
+                        {editingClientNotesId === client.id ? (
+                          <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={editingNotesText}
+                              onChange={e => setEditingNotesText(e.target.value)}
+                              className="border-2 border-blue-500 rounded px-2.5 py-1 text-xs w-full focus:outline-none shadow-inner"
+                              placeholder="הקלד הערה..."
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') updateClientNotes(client.id, editingNotesText);
+                                if (e.key === 'Escape') setEditingClientNotesId(null);
+                              }}
+                            />
+                            <button 
+                              onClick={() => updateClientNotes(client.id, editingNotesText)}
+                              className="bg-green-600 text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-green-700 shadow"
+                              title="שמור (Enter)"
+                            >
+                              ✓
+                            </button>
+                            <button 
+                              onClick={() => setEditingClientNotesId(null)}
+                              className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-300 font-bold"
+                              title="ביטול (Esc)"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div 
+                            onClick={() => {
+                              setEditingClientNotesId(client.id);
+                              setEditingNotesText(client.notes || '');
+                            }}
+                            className="group flex items-center justify-between gap-1 cursor-pointer hover:bg-yellow-50 p-1.5 rounded transition border border-transparent hover:border-yellow-300"
+                            title="לחץ לעריכת הערה"
+                          >
+                            <span className={client.notes ? "text-gray-800 font-medium" : "text-gray-400 italic text-xs"}>
+                              {client.notes || '+ הוסף הערה'}
+                            </span>
+                            <span className="text-gray-400 group-hover:text-[#c9a962] transition text-xs font-bold mr-1">✏️</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 flex items-center gap-2">
                         <button 
                           onClick={() => setSelectedClientForDossier(client)} 
@@ -1323,7 +1390,7 @@ export default function ManagerDashboard() {
             {/* Body */}
             <div className="p-6 overflow-y-auto flex flex-col gap-6">
               {/* Contact Details Card */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border">
                 <div>
                   <span className="text-xs text-gray-500 block">טלפון</span>
                   <strong className="text-[#1a2332]" dir="ltr">{selectedClientForDossier.phone}</strong>
@@ -1337,9 +1404,36 @@ export default function ManagerDashboard() {
                   <strong className="text-[#1a2332]">{selectedClientForDossier.city || '-'}</strong>
                 </div>
                 <div>
+                  <span className="text-xs text-gray-500 block">תאריך רישום</span>
+                  <strong className="text-blue-600" dir="ltr">{selectedClientForDossier.created_at ? formatDate(selectedClientForDossier.created_at.split('T')[0]) : '-'}</strong>
+                </div>
+                <div>
                   <span className="text-xs text-gray-500 block">מקור רישום</span>
                   <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">{selectedClientForDossier.source || 'מנהל'}</span>
                 </div>
+              </div>
+
+              {/* Client Notes Section */}
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-amber-900 font-bold flex items-center gap-1">
+                    <span>📝</span> הערות ודגשים ללקוח:
+                  </span>
+                  <button
+                    onClick={() => {
+                      const newNotes = prompt("ערוך הערה ללקוח:", selectedClientForDossier.notes || "");
+                      if (newNotes !== null) {
+                        updateClientNotes(selectedClientForDossier.id, newNotes);
+                      }
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-bold flex items-center gap-1"
+                  >
+                    <span>✏️</span> ערוך הערה
+                  </button>
+                </div>
+                <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap bg-white/70 p-2.5 rounded-lg border border-amber-100">
+                  {selectedClientForDossier.notes || "אין הערות שמורות עבור לקוח זה. לחץ 'ערוך הערה' להוספה."}
+                </p>
               </div>
 
               {/* Financial KPI for this client */}

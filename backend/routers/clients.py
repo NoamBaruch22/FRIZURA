@@ -21,7 +21,25 @@ async def create_client(client_in: ClientCreate, db: AsyncSession = Depends(get_
     db.add(new_client)
     await db.commit()
     await db.refresh(new_client)
-    return new_client
+@router.patch("/{client_id}", response_model=ClientResponse)
+async def update_client(
+    client_id: int, 
+    client_in: ClientUpdate, 
+    db: AsyncSession = Depends(get_db), 
+    current_manager = Depends(get_current_manager)
+):
+    result = await db.execute(select(Client).filter(Client.id == client_id))
+    client = result.scalars().first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+        
+    update_data = client_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(client, field, value)
+        
+    await db.commit()
+    await db.refresh(client)
+    return client
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_client(client_id: int, db: AsyncSession = Depends(get_db), current_manager = Depends(get_current_manager)):
