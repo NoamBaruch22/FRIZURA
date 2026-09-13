@@ -11,15 +11,22 @@ from backend.auth.dependencies import get_current_manager
 
 router = APIRouter(prefix="/api/appointments", tags=["Appointments"])
 
-async def check_collision(db: AsyncSession, check_date: date, check_time: time, exclude_id: int = None) -> bool:
+def extract_employee(service_str: Optional[str], emp: Optional[str] = None) -> Optional[str]:
+    if emp and emp.strip():
+        return emp.strip()
+    if not service_str:
+        return None
+    for name in ["דני", "דוד", "יעל", "שירן", "נועם"]:
+        if name in service_str:
+            return name
+    return None
+
+async def check_collision(db: AsyncSession, check_date: date, check_time: time, employee: Optional[str] = None, exclude_id: int = None) -> bool:
     """
-    Checks if there's a colliding appointment within 60 minutes.
+    Checks if there's a colliding appointment within 60 minutes for the SAME employee/barber.
+    If employee is specified, appointments with a different employee do not collide!
     """
-    # SQLite didn't have great time math, but Postgres does. 
-    # To keep it simple in Python, we'll fetch today's appointments and check.
-    # In a production environment with massive data, we'd use raw SQL for time overlap,
-    # but for a boutique salon, fetching a day's appointments is ~10-20 rows.
-    
+    target_emp = employee.strip() if employee else None
     stmt = select(Appointment).filter(
         Appointment.appointment_date == check_date,
         Appointment.is_deleted == False,
@@ -37,6 +44,11 @@ async def check_collision(db: AsyncSession, check_date: date, check_time: time, 
         appt_dt = datetime.combine(appt.appointment_date, appt.appointment_time)
         diff = abs((check_dt - appt_dt).total_seconds())
         if diff < 3600: # 60 minutes
+            if target_emp:
+                appt_emp = extract_employee(appt.service, getattr(appt, 'employee', None))
+                # If existing appointment is with a different employee, it does not collide!
+                if appt_emp and appt_emp != target_emp:
+                    continue
             return True
             
     return False
@@ -59,23 +71,27 @@ async def create_appointment(
     current_user: Manager = Depends(get_current_manager)
 ) -> Any:
     """
-    Create a new appointment, enforcing the 60-minute collision rule.
+    Create a new appointment, enforcing the 60-minute collision rule per employee.
     """
-    collision = await check_collision(db, appt_in.appointment_date, appt_in.appointment_time)
+    target_emp = appt_in.employee or extract_employee(appt_in.service)
+    collision = await check_collision(db, appt_in.appointment_date, appt_in.appointment_time, employee=target_emp)
     if collision:
+        emp_text = f" עבור {target_emp}" if target_emp else ""
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="There is already an appointment scheduled within 60 minutes of this time."
+            detail=f"השעה תפוסה! קיים כבר תור{emp_text} בטווח של שעה מזמן זה."
         )
         
-    new_appt = Appointment(**appt_in.model_dump())
+    appt_data = appt_in.model_dump()
+    if not appt_data.get("employee"):
+        appt_data["employee"] = target_emp
+    new_appt = Appointment(**appt_data)
     db.add(new_appt)
     await db.commit()
     await db.refresh(new_appt)
     return new_appt
 
 
-# (at the end of the file or near create_appointment)
 @router.post("/book_public", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
 async def create_public_booking(
     booking_in: PublicBooking,
@@ -85,12 +101,14 @@ async def create_public_booking(
     Public endpoint for customers to book an appointment directly.
     Finds or creates a Client by phone, then creates the Appointment.
     """
-    # 1. Check for collision
-    collision = await check_collision(db, booking_in.appointment_date, booking_in.appointment_time)
+    # 1. Check for collision per employee
+    target_emp = booking_in.employee or extract_employee(booking_in.service)
+    collision = await check_collision(db, booking_in.appointment_date, booking_in.appointment_time, employee=target_emp)
     if collision:
+        emp_text = f" עבור {target_emp}" if target_emp else ""
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="There is already an appointment scheduled within 60 minutes of this time."
+            detail=f"השעה תפוסה! קיים כבר תור{emp_text} בטווח של שעה מזמן זה. אנא בחר שעה אחרת."
         )
         
     # 2. Find or create client
@@ -122,6 +140,7 @@ async def create_public_booking(
     new_appt = Appointment(
         client_id=client.id,
         service=booking_in.service,
+        employee=target_emp,
         appointment_date=booking_in.appointment_date,
         appointment_time=booking_in.appointment_time,
         status="ממתין לאישור"

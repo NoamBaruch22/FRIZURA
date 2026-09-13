@@ -5,6 +5,7 @@ from typing import Optional
 class AppointmentBase(BaseModel):
     client_id: int
     service: str
+    employee: Optional[str] = None
     appointment_date: date
     appointment_time: time
     status: Optional[str] = "ממתין"
@@ -14,6 +15,7 @@ class AppointmentCreate(AppointmentBase):
 
 class AppointmentUpdate(BaseModel):
     service: Optional[str] = None
+    employee: Optional[str] = None
     appointment_date: Optional[date] = None
     appointment_time: Optional[time] = None
     status: Optional[str] = None
@@ -31,6 +33,7 @@ class PublicBooking(BaseModel):
     phone: str
     email: EmailStr
     service: str
+    employee: Optional[str] = None
     city: Optional[str] = None
     notes: Optional[str] = None
     appointment_date: date

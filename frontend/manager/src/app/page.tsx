@@ -256,6 +256,7 @@ export default function ManagerDashboard() {
       await axios.post(`${apiUrl}/api/appointments/`, {
         client_id: parseInt(formData.client_id),
         service: fullService,
+        employee: formData.employee || undefined,
         appointment_date: formData.appointment_date,
         appointment_time: formData.appointment_time,
         status: "ממתין לאישור"
@@ -266,7 +267,7 @@ export default function ManagerDashboard() {
       alert("התור נקבע בהצלחה ביומן!");
     } catch (err: any) {
       if (err.response?.status === 409) {
-        alert("השעה תפוסה! קיים כבר תור ביומן בטווח של שעה מזמן זה. אנא בחר שעה אחרת.");
+        alert(err.response?.data?.detail || "השעה תפוסה! קיים כבר תור ביומן בטווח של שעה מזמן זה. אנא בחר שעה אחרת.");
       } else {
         alert(err.response?.data?.detail || 'שגיאה ביצירת תור. ודא שכל השדות מלאים.');
       }

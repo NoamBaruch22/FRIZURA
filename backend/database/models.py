@@ -52,6 +52,7 @@ class Appointment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False, index=True)
     service: Mapped[str] = mapped_column(String(100), nullable=False)
+    employee: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     appointment_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     appointment_time: Mapped[time] = mapped_column(Time, nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="ממתין", nullable=False) # 'ממתין', 'בוצע', 'בוטל'

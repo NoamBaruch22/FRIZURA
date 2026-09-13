@@ -61,6 +61,17 @@ export default function CustomerHome() {
   const [showBooking, setShowBooking] = useState(false);
   const [bookingService, setBookingService] = useState('');
   const [lastBookedEvent, setLastBookedEvent] = useState<CalendarEvent | null>(null);
+  const [confirmedAppointment, setConfirmedAppointment] = useState<{
+    clientName: string;
+    phone: string;
+    email: string;
+    city?: string;
+    service: string;
+    employee: string;
+    date: string;
+    time: string;
+    notes?: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -74,6 +85,15 @@ export default function CustomerHome() {
     appointment_time: ''
   });
   const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    return dateStr;
+  };
 
   const sendMessage = async (text?: string | React.MouseEvent) => {
     // If text is a string (from a button click), use it. Otherwise use the input state.
@@ -118,6 +138,49 @@ export default function CustomerHome() {
     }
   };
 
+  const openBooking = (service: string) => {
+    const isWomen = service.includes("נשים");
+    const defaultService = isWomen ? "תספורת נשים" : "תספורת גברים";
+    const defaultEmployee = isWomen ? "יעל" : "דני";
+
+    setBookingService(service);
+    setFormData({
+      first_name: '',
+      last_name: '',
+      phone: '',
+      email: '',
+      city: '',
+      service_type: defaultService,
+      employee: defaultEmployee,
+      notes: '',
+      appointment_date: '',
+      appointment_time: ''
+    });
+    setConfirmedAppointment(null);
+    setLastBookedEvent(null);
+    setBookingSuccess(false);
+    setShowBooking(true);
+  };
+
+  const closeBookingModal = () => {
+    setShowBooking(false);
+    setBookingSuccess(false);
+    setConfirmedAppointment(null);
+    setLastBookedEvent(null);
+    setFormData({
+      first_name: '',
+      last_name: '',
+      phone: '',
+      email: '',
+      city: '',
+      service_type: '',
+      employee: '',
+      notes: '',
+      appointment_date: '',
+      appointment_time: ''
+    });
+  };
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -127,41 +190,50 @@ export default function CustomerHome() {
     }
     try {
       const apiUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8000` : 'http://localhost:8000';
+      const fullService = `${formData.service_type} (עם: ${formData.employee})`;
       await axios.post(`${apiUrl}/api/appointments/book_public`, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
         email: formData.email.trim(),
         city: formData.city || undefined,
-        service: `${formData.service_type} (עם: ${formData.employee})`,
+        service: fullService,
+        employee: formData.employee,
         notes: formData.notes || undefined,
         appointment_date: formData.appointment_date,
         appointment_time: formData.appointment_time
       });
+
+      const clientFullName = `${formData.first_name} ${formData.last_name}`;
+      setConfirmedAppointment({
+        clientName: clientFullName,
+        phone: formData.phone,
+        email: formData.email.trim(),
+        city: formData.city,
+        service: formData.service_type,
+        employee: formData.employee,
+        date: formData.appointment_date,
+        time: formData.appointment_time,
+        notes: formData.notes
+      });
+
       setLastBookedEvent({
         title: `תור למספרת FRIZURA - ${formData.service_type}`,
         date: formData.appointment_date,
         time: formData.appointment_time,
         duration_minutes: 60,
         location: "קפלן 5, אזור",
-        description: `תור למספרת FRIZURA עבור ${formData.first_name} ${formData.last_name}. שירות: ${formData.service_type} (ספר/ית: ${formData.employee}). טלפון: 054-2002400.`
+        description: `תור למספרת FRIZURA עבור ${clientFullName}. שירות: ${formData.service_type} (ספר/ית: ${formData.employee}). טלפון: 054-2002400.`
       });
       setBookingSuccess(true);
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 409) {
-        alert("השעה תפוסה! יש כבר תור בטווח של שעה מהזמן שבחרת. אנא בחר שעה אחרת.");
+        alert(err.response?.data?.detail || "השעה תפוסה! קיים כבר תור עבור ספר/ית זה בטווח של שעה מזמן זה. אנא בחר שעה אחרת.");
       } else {
         alert("שגיאה בשליחת הבקשה. אנא ודא שכל הפרטים מולאו כראוי ונסה שנית.");
       }
     }
-  };
-
-  const openBooking = (service: string) => {
-    setBookingService(service);
-    setLastBookedEvent(null);
-    setBookingSuccess(false);
-    setShowBooking(true);
   };
 
   return (
@@ -192,97 +264,248 @@ export default function CustomerHome() {
       {/* Booking Modal */}
       {showBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-8 max-w-md w-full relative shadow-2xl">
-            <button onClick={() => setShowBooking(false)} className="absolute top-4 left-4 text-gray-500 hover:text-black font-bold">X</button>
-            <h2 className="text-2xl font-bold mb-2">קביעת תור</h2>
-            <p className="text-gray-600 mb-6">שירות מבוקש: <strong>{bookingService}</strong></p>
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-lg w-full relative shadow-2xl max-h-[92vh] overflow-y-auto">
+            <button 
+              onClick={closeBookingModal} 
+              className="absolute top-4 left-4 text-gray-400 hover:text-gray-800 font-bold text-xl w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition"
+              aria-label="סגור"
+            >
+              ✕
+            </button>
+            <h2 className="text-2xl font-bold mb-1 text-[#1a2332]">קביעת תור מקוון</h2>
+            <p className="text-gray-500 mb-6 text-sm">מספרת FRIZURA • קפלן 5, אזור</p>
             
-            {bookingSuccess ? (
-              <div className="text-center py-6 flex flex-col items-center gap-3">
-                <div className="text-green-500 text-5xl">✓</div>
-                <h3 className="text-xl font-bold text-gray-900">הבקשה נקלטה בהצלחה!</h3>
-                <p className="text-gray-600 text-sm">התור נרשם במערכת ונשמר עבורך.</p>
+            {bookingSuccess && confirmedAppointment ? (
+              <div className="text-center py-2 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl font-bold shadow-sm">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">התור נקבע בהצלחה!</h3>
+                  <p className="text-gray-600 text-sm mt-1">פרטי התור נרשמו במערכת ונשמרו עבורך</p>
+                </div>
+
+                {/* Full Details Card */}
+                <div className="w-full bg-[#fbf9f5] border border-amber-200/70 rounded-xl p-4 text-right flex flex-col gap-2.5 text-sm shadow-sm">
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">שם לקוח/ה:</span>
+                    <span className="font-bold text-gray-900">{confirmedAppointment.clientName}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">סוג שירות:</span>
+                    <span className="font-bold text-[#1a2332]">{confirmedAppointment.service}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">ספר/ית מטפל/ת:</span>
+                    <span className="font-bold text-[#c9a962] bg-[#1a2332] px-2.5 py-0.5 rounded text-xs">{confirmedAppointment.employee}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">תאריך:</span>
+                    <span className="font-bold text-gray-900 font-mono">{formatDate(confirmedAppointment.date)}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">שעה:</span>
+                    <span className="font-bold text-gray-900 font-mono text-base">{confirmedAppointment.time}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">כתובת:</span>
+                    <span className="font-medium text-gray-800">קפלן 5, אזור 📍</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">טלפון:</span>
+                    <span className="font-mono text-gray-800" dir="ltr">{confirmedAppointment.phone}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 border-stone-200">
+                    <span className="text-gray-500 font-medium">אימייל:</span>
+                    <span className="font-mono text-gray-800 text-xs" dir="ltr">{confirmedAppointment.email}</span>
+                  </div>
+                  {confirmedAppointment.notes && (
+                    <div className="flex flex-col gap-1 pt-1 text-right">
+                      <span className="text-gray-500 text-xs font-medium">הערות לטיפול:</span>
+                      <span className="text-gray-800 text-xs bg-white p-2 rounded border border-stone-200">{confirmedAppointment.notes}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Google Calendar Action */}
                 {lastBookedEvent && (
-                  <div className="mt-2 w-full p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
-                    <p className="text-xs text-blue-900 font-semibold mb-2">האם תרצה להוסיף את הפגישה ליומן Google שלך?</p>
+                  <div className="w-full p-4 bg-blue-50 border border-blue-200 rounded-xl text-center flex flex-col items-center gap-2">
+                    <p className="text-xs text-blue-900 font-semibold">רוצה תזכורת? שמור את הפגישה ישירות ביומן שלך:</p>
                     <a
                       href={createGoogleCalendarUrl(lastBookedEvent)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow transition"
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg text-sm shadow transition transform hover:scale-[1.02]"
                     >
                       <span>📅</span> הוסף ליומן Google
                     </a>
                   </div>
                 )}
+
                 <button 
-                  onClick={() => setShowBooking(false)}
-                  className="mt-3 text-xs text-gray-500 hover:text-gray-800 underline"
+                  onClick={closeBookingModal}
+                  className="mt-2 text-sm text-gray-500 hover:text-gray-900 underline font-medium"
                 >
                   סגור חלון
                 </button>
               </div>
             ) : (
               <form onSubmit={handleBookingSubmit} className="flex flex-col gap-4">
-                <div className="flex gap-4">
-                  <input required type="text" placeholder="שם פרטי" className="border p-2 rounded flex-1" value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} />
-                  <input required type="text" placeholder="שם משפחה" className="border p-2 rounded flex-1" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
+                <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-xs text-amber-900 font-medium flex items-center justify-between">
+                  <span>{bookingService.includes("נשים") ? "💇‍♀️ קביעת תור למחלקת נשים" : "💈 קביעת תור למחלקת גברים"}</span>
+                  <span className="text-gray-500">שירות מבוקש: {bookingService}</span>
                 </div>
                 <div className="flex gap-4">
-                  <input required type="tel" placeholder="מספר טלפון" className="border p-2 rounded flex-1" dir="ltr" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                  <input required type="email" placeholder="אימייל (חובה)" className="border p-2 rounded flex-1" dir="ltr" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder="שם פרטי" 
+                    className="border p-2.5 rounded-lg flex-1" 
+                    value={formData.first_name} 
+                    onChange={e => setFormData({...formData, first_name: e.target.value})} 
+                  />
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder="שם משפחה" 
+                    className="border p-2.5 rounded-lg flex-1" 
+                    value={formData.last_name} 
+                    onChange={e => setFormData({...formData, last_name: e.target.value})} 
+                  />
                 </div>
                 <div className="flex gap-4">
-                  <select required className="border p-2 rounded flex-1" value={formData.service_type} onChange={e => setFormData({...formData, service_type: e.target.value})}>
-                    <option value="">בחר סוג שירות</option>
-                    <option value="תספורת גברים / עיצוב זקן">תספורת גברים / עיצוב זקן</option>
-                    <option value="תספורת נשים">תספורת נשים</option>
-                    <option value="צבע / גוונים">צבע / גוונים</option>
-                    <option value="החלקת קרטין / כלה">החלקת קרטין / כלה</option>
-                    <option value="שיקום / כימיה">שיקום / כימיה</option>
+                  <input 
+                    required 
+                    type="tel" 
+                    placeholder="מספר טלפון" 
+                    className="border p-2.5 rounded-lg flex-1" 
+                    dir="ltr" 
+                    value={formData.phone} 
+                    onChange={e => setFormData({...formData, phone: e.target.value})} 
+                  />
+                  <input 
+                    required 
+                    type="email" 
+                    placeholder="אימייל (חובה)" 
+                    className="border p-2.5 rounded-lg flex-1" 
+                    dir="ltr" 
+                    value={formData.email} 
+                    onChange={e => setFormData({...formData, email: e.target.value})} 
+                  />
+                </div>
+                <div className="flex gap-4">
+                  {bookingService.includes("נשים") ? (
+                    <select 
+                      required 
+                      className="border p-2.5 rounded-lg flex-1" 
+                      value={formData.service_type} 
+                      onChange={e => setFormData({...formData, service_type: e.target.value})}
+                    >
+                      <option value="תספורת נשים">תספורת נשים</option>
+                      <option value="עיצוב שיער ופן">עיצוב שיער ופן</option>
+                      <option value="צבע / גוונים">צבע / גוונים</option>
+                      <option value="החלקת קרטין">החלקת קרטין</option>
+                      <option value="תסרוקות ערב וכלה">תסרוקות ערב וכלה</option>
+                      <option value="שיקום / כימיה">שיקום / כימיה</option>
+                    </select>
+                  ) : (
+                    <select 
+                      required 
+                      className="border p-2.5 rounded-lg flex-1" 
+                      value={formData.service_type} 
+                      onChange={e => setFormData({...formData, service_type: e.target.value})}
+                    >
+                      <option value="תספורת גברים">תספורת גברים</option>
+                      <option value="עיצוב זקן">עיצוב זקן</option>
+                      <option value="תספורת גברים וזקן">תספורת גברים וזקן</option>
+                      <option value="טיפול פנים ודירוג">טיפול פנים ודירוג</option>
+                    </select>
+                  )}
+
+                  {bookingService.includes("נשים") ? (
+                    <select 
+                      required 
+                      className="border p-2.5 rounded-lg flex-1" 
+                      value={formData.employee} 
+                      onChange={e => setFormData({...formData, employee: e.target.value})}
+                    >
+                      <option value="יעל">יעל (נשים, צבע וגוונים)</option>
+                      <option value="שירן">שירן (כלה, תסרוקות, קרטין)</option>
+                      <option value="נועם">נועם (כימיה, שיקום וטיפוח)</option>
+                    </select>
+                  ) : (
+                    <select 
+                      required 
+                      className="border p-2.5 rounded-lg flex-1" 
+                      value={formData.employee} 
+                      onChange={e => setFormData({...formData, employee: e.target.value})}
+                    >
+                      <option value="דני">דני (גברים, זקן)</option>
+                      <option value="דוד">דוד (גברים, דירוגים)</option>
+                    </select>
+                  )}
+                </div>
+                <div className="flex gap-4">
+                  <input 
+                    required 
+                    type="date" 
+                    className="border p-2.5 rounded-lg flex-1" 
+                    value={formData.appointment_date} 
+                    onChange={e => setFormData({...formData, appointment_date: e.target.value})} 
+                    min={new Date().toISOString().split('T')[0]} 
+                  />
+                  <select 
+                    required 
+                    className="border p-2.5 rounded-lg flex-1 font-mono" 
+                    value={formData.appointment_time} 
+                    onChange={e => setFormData({...formData, appointment_time: e.target.value})}
+                  >
+                    <option value="">בחר שעה</option>
+                    <option value="08:00">08:00</option>
+                    <option value="08:30">08:30</option>
+                    <option value="09:00">09:00</option>
+                    <option value="09:30">09:30</option>
+                    <option value="10:00">10:00</option>
+                    <option value="10:30">10:30</option>
+                    <option value="11:00">11:00</option>
+                    <option value="11:30">11:30</option>
+                    <option value="12:00">12:00</option>
+                    <option value="12:30">12:30</option>
+                    <option value="13:00">13:00</option>
+                    <option value="13:30">13:30</option>
+                    <option value="14:00">14:00</option>
+                    <option value="14:30">14:30</option>
+                    <option value="15:00">15:00</option>
+                    <option value="15:30">15:30</option>
+                    <option value="16:00">16:00</option>
+                    <option value="16:30">16:30</option>
+                    <option value="17:00">17:00</option>
+                    <option value="17:30">17:30</option>
+                    <option value="18:00">18:00</option>
+                    <option value="18:30">18:30</option>
+                    <option value="19:00">19:00</option>
+                    <option value="19:30">19:30</option>
                   </select>
-                  <select required className="border p-2 rounded flex-1" value={formData.employee} onChange={e => setFormData({...formData, employee: e.target.value})}>
-                    <option value="">בחר עובד.ת</option>
-                    <option value="דני">דני (גברים, זקן)</option>
-                    <option value="יעל">יעל (נשים, צבע)</option>
-                    <option value="שירן">שירן (כלה, קרטין)</option>
-                    <option value="דוד">דוד (גברים, דירוגים)</option>
-                    <option value="נועם">נועם (כימיה, שיקום)</option>
-                  </select>
                 </div>
-                <div className="flex gap-4">
-                  <input required type="date" className="border p-2 rounded flex-1" value={formData.appointment_date} onChange={e => setFormData({...formData, appointment_date: e.target.value})} min={new Date().toISOString().split('T')[0]} />
-                  <select required className="border p-2 rounded flex-1" value={formData.appointment_time} onChange={e => setFormData({...formData, appointment_time: e.target.value})}>
-<option value="">בחר שעה</option>
-<option value="08:00">08:00</option>
-<option value="08:30">08:30</option>
-<option value="09:00">09:00</option>
-<option value="09:30">09:30</option>
-<option value="10:00">10:00</option>
-<option value="10:30">10:30</option>
-<option value="11:00">11:00</option>
-<option value="11:30">11:30</option>
-<option value="12:00">12:00</option>
-<option value="12:30">12:30</option>
-<option value="13:00">13:00</option>
-<option value="13:30">13:30</option>
-<option value="14:00">14:00</option>
-<option value="14:30">14:30</option>
-<option value="15:00">15:00</option>
-<option value="15:30">15:30</option>
-<option value="16:00">16:00</option>
-<option value="16:30">16:30</option>
-<option value="17:00">17:00</option>
-<option value="17:30">17:30</option>
-<option value="18:00">18:00</option>
-<option value="18:30">18:30</option>
-<option value="19:00">19:00</option>
-<option value="19:30">19:30</option>
-</select>
-                </div>
-                <input type="text" placeholder="עיר מגורים (לא חובה)" className="border p-2 rounded" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-                <textarea placeholder="הערות נוספות (לא חובה)" className="border p-2 rounded h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})}></textarea>
-                <button type="submit" className="bg-[#1a2332] text-white p-3 rounded-xl font-bold hover:bg-gray-800 mt-2">שלח בקשה לתור</button>
+                <input 
+                  type="text" 
+                  placeholder="עיר מגורים (לא חובה)" 
+                  className="border p-2.5 rounded-lg" 
+                  value={formData.city} 
+                  onChange={e => setFormData({...formData, city: e.target.value})} 
+                />
+                <textarea 
+                  placeholder="הערות נוספות או בקשות מיוחדות (לא חובה)" 
+                  className="border p-2.5 rounded-lg h-20 text-sm" 
+                  value={formData.notes} 
+                  onChange={e => setFormData({...formData, notes: e.target.value})}
+                ></textarea>
+                <button 
+                  type="submit" 
+                  className="bg-[#1a2332] text-white p-3 rounded-xl font-bold hover:bg-[#c9a962] hover:text-[#1a2332] transition shadow"
+                >
+                  אשר וקבע תור
+                </button>
               </form>
             )}
           </div>

@@ -135,7 +135,15 @@ class ChatbotService:
         except ValueError:
             return json.dumps({"status": "error", "message": "Invalid date or time format. Expected YYYY-MM-DD and HH:MM."})
 
-        # Check collision within 60 minutes
+        # Determine target employee
+        target_emp = data.get("employee")
+        if not target_emp:
+            for emp_name in ["דני", "דוד", "יעל", "שירן", "נועם"]:
+                if emp_name in service:
+                    target_emp = emp_name
+                    break
+
+        # Check collision within 60 minutes for the same employee
         stmt = select(Appointment).filter(
             Appointment.appointment_date == parsed_date,
             Appointment.is_deleted == False,
@@ -146,7 +154,16 @@ class ChatbotService:
         for appt in existing_appts:
             appt_dt = datetime.combine(appt.appointment_date, appt.appointment_time)
             if abs((check_dt - appt_dt).total_seconds()) < 3600:
-                return json.dumps({"status": "collision", "message": "There is already an appointment within 60 minutes of this time. Please pick another time."})
+                # Check if appt has a different employee
+                appt_emp = getattr(appt, 'employee', None)
+                if not appt_emp:
+                    for emp_name in ["דני", "דוד", "יעל", "שירן", "נועם"]:
+                        if emp_name in appt.service:
+                            appt_emp = emp_name
+                            break
+                if target_emp and appt_emp and target_emp != appt_emp:
+                    continue # Not the same employee, no collision!
+                return json.dumps({"status": "collision", "message": f"There is already an appointment with {target_emp or 'the stylist'} within 60 minutes of this time. Please pick another time."})
 
         # Find or create client
         client = (await db.execute(select(Client).filter(Client.phone == phone))).scalars().first()
