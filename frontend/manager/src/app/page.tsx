@@ -32,6 +32,70 @@ export default function ManagerDashboard() {
   const [formData, setFormData] = useState<any>({});
   const [editingClientNotesId, setEditingClientNotesId] = useState<number | null>(null);
   const [editingNotesText, setEditingNotesText] = useState("");
+  const [isEditingDossierClient, setIsEditingDossierClient] = useState(false);
+  const [editClientForm, setEditClientForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    city: ''
+  });
+
+  const getApptEmployee = (appt: any) => {
+    if (appt.employee) return appt.employee;
+    for (const name of ["דני", "דוד", "יעל", "שירן", "נועם"]) {
+      if (appt.service?.includes(name)) return name;
+    }
+    return "צוות כללי";
+  };
+
+  const formatWhatsAppUrl = (rawPhone: string, clientName: string) => {
+    if (!rawPhone) return '#';
+    let clean = rawPhone.replace(/\D/g, '');
+    if (clean.startsWith('0')) clean = '972' + clean.substring(1);
+    const msg = encodeURIComponent(`שלום ${clientName}, ממספרת FRIZURA. שמחים לעמוד לשירותך!`);
+    return `https://wa.me/${clean}?text=${msg}`;
+  };
+
+  const startEditingDossierClient = () => {
+    if (!selectedClientForDossier) return;
+    setEditClientForm({
+      first_name: selectedClientForDossier.first_name || '',
+      last_name: selectedClientForDossier.last_name || '',
+      phone: selectedClientForDossier.phone || '',
+      email: selectedClientForDossier.email || '',
+      city: selectedClientForDossier.city || ''
+    });
+    setIsEditingDossierClient(true);
+  };
+
+  const saveDossierClientChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClientForDossier) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (editClientForm.email && !emailRegex.test(editClientForm.email.trim())) {
+      alert("אנא הזן כתובת אימייל תקינה (למשל name@example.com).");
+      return;
+    }
+    try {
+      const currentToken = token || localStorage.getItem("manager_token");
+      const res = await axios.patch(`${apiUrl}/api/clients/${selectedClientForDossier.id}`, {
+        first_name: editClientForm.first_name.trim(),
+        last_name: editClientForm.last_name.trim(),
+        phone: editClientForm.phone.trim(),
+        email: editClientForm.email.trim() || null,
+        city: editClientForm.city.trim() || null
+      }, {
+        headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+      });
+      setSelectedClientForDossier(res.data);
+      setClients(prev => prev.map(c => c.id === res.data.id ? res.data : c));
+      setIsEditingDossierClient(false);
+      alert("פרטי הלקוח עודכנו בהצלחה!");
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "שגיאה בעדכון פרטי הלקוח");
+    }
+  };
 
   // Direct backend API endpoint matching the browser's hostname (e.g. localhost or 127.0.0.1)
   const apiUrl = typeof window !== 'undefined'
@@ -738,9 +802,20 @@ export default function ManagerDashboard() {
                 <tbody>
                   {clients.map(client => (
                     <tr key={client.id} className="border-b hover:bg-gray-50 transition">
-                      <td className="py-3 font-bold text-[#1a2332]">{client.first_name} {client.last_name}</td>
+                      <td className="py-3 font-bold text-[#1a2332]">
+                        <button 
+                          onClick={() => setSelectedClientForDossier(client)}
+                          className="hover:text-blue-600 hover:underline text-right flex items-center gap-2 group cursor-pointer"
+                          title="לחץ לפתיחת כרטיס לקוח מלא"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-900 text-xs flex items-center justify-center font-bold group-hover:bg-blue-600 group-hover:text-white transition">
+                            {client.first_name ? client.first_name[0] : '👤'}
+                          </span>
+                          <span className="font-bold">{client.first_name} {client.last_name}</span>
+                        </button>
+                      </td>
                       <td className="py-3 text-gray-700 font-mono text-sm" dir="ltr">{client.phone}</td>
-                      <td className="py-3 text-gray-600 font-mono text-xs" dir="ltr">{client.email || '-'}</td>
+                      <td className="py-3 text-gray-700 font-mono text-xs break-all" dir="ltr">{client.email || '-'}</td>
                       <td className="py-3 font-medium text-gray-800">{client.city || '-'}</td>
                       <td className="py-3 font-medium text-blue-600">
                         <span dir="ltr">{client.created_at ? formatDate(client.created_at.split('T')[0]) : '-'}</span>
@@ -1373,51 +1448,222 @@ export default function ManagerDashboard() {
         </div>
       )}
 
-      {/* MODAL 5: CLIENT DOSSIER (כרטיס לקוח) */}
+      {/* MODAL 5: CLIENT DOSSIER (כרטיס לקוח משודרג) */}
       {selectedClientForDossier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl md:max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="bg-[#1a2332] text-white p-6 flex justify-between items-center shrink-0">
-              <div>
-                <h2 className="text-2xl font-bold font-serif text-[#c9a962]">
-                  כרטיס לקוח: {selectedClientForDossier.first_name} {selectedClientForDossier.last_name}
-                </h2>
-                <p className="text-gray-300 text-sm mt-1">מזהה לקוח: #{selectedClientForDossier.id}</p>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#c9a962] text-[#1a2332] font-serif font-bold text-xl flex items-center justify-center shadow">
+                  {selectedClientForDossier.first_name ? selectedClientForDossier.first_name[0] : '👤'}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold font-serif text-[#c9a962] flex items-center gap-2">
+                    כרטיס לקוח: {selectedClientForDossier.first_name} {selectedClientForDossier.last_name}
+                  </h2>
+                  <p className="text-gray-300 text-xs mt-0.5">
+                    מזהה לקוח: #{selectedClientForDossier.id} • לקוח/ה פעיל/ה במספרה
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setSelectedClientForDossier(null)} className="text-gray-400 hover:text-white text-2xl font-bold">×</button>
+              <button 
+                onClick={() => { setSelectedClientForDossier(null); setIsEditingDossierClient(false); }} 
+                className="text-gray-400 hover:text-white text-2xl font-bold p-1 rounded-lg hover:bg-white/10 transition"
+              >
+                ✕
+              </button>
             </div>
 
             {/* Body */}
-            <div className="p-6 overflow-y-auto flex flex-col gap-6">
-              {/* Contact Details Card */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-xl border">
-                <div>
-                  <span className="text-xs text-gray-500 block">טלפון</span>
-                  <strong className="text-[#1a2332]" dir="ltr">{selectedClientForDossier.phone}</strong>
+            <div className="p-6 overflow-y-auto flex flex-col gap-6 bg-stone-50/50">
+              {/* Profile / Edit Card */}
+              {isEditingDossierClient ? (
+                <form onSubmit={saveDossierClientChanges} className="bg-blue-50/70 border-2 border-blue-200 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+                  <div className="flex justify-between items-center border-b border-blue-200 pb-2">
+                    <span className="font-bold text-blue-900 text-sm flex items-center gap-1.5">
+                      <span>✏️</span> עריכת פרטי לקוח במאגר
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsEditingDossierClient(false)}
+                      className="text-xs text-gray-500 hover:text-gray-800 underline font-medium"
+                    >
+                      ביטול עריכה
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">שם פרטי *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        className="border p-2.5 rounded-lg w-full text-sm bg-white" 
+                        value={editClientForm.first_name} 
+                        onChange={e => setEditClientForm({...editClientForm, first_name: e.target.value})} 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">שם משפחה *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        className="border p-2.5 rounded-lg w-full text-sm bg-white" 
+                        value={editClientForm.last_name} 
+                        onChange={e => setEditClientForm({...editClientForm, last_name: e.target.value})} 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">מספר טלפון *</label>
+                      <input 
+                        type="tel" 
+                        required 
+                        dir="ltr" 
+                        className="border p-2.5 rounded-lg w-full text-sm font-mono bg-white" 
+                        value={editClientForm.phone} 
+                        onChange={e => setEditClientForm({...editClientForm, phone: e.target.value})} 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">כתובת דוא״ל מלאה (אימייל)</label>
+                      <input 
+                        type="email" 
+                        dir="ltr" 
+                        className="border p-2.5 rounded-lg w-full text-sm font-mono bg-white" 
+                        value={editClientForm.email} 
+                        onChange={e => setEditClientForm({...editClientForm, email: e.target.value})} 
+                        placeholder="name@example.com"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-gray-700 mb-1">עיר מגורים</label>
+                      <input 
+                        type="text" 
+                        className="border p-2.5 rounded-lg w-full text-sm bg-white" 
+                        value={editClientForm.city} 
+                        onChange={e => setEditClientForm({...editClientForm, city: e.target.value})} 
+                        placeholder="עיר מגורים..."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-blue-200">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsEditingDossierClient(false)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-300 transition"
+                    >
+                      ביטול
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow transition"
+                    >
+                      💾 שמור שינויים
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="bg-white border border-stone-200 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+                  <div className="flex justify-between items-center border-b border-stone-200 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800 text-sm">פרטי התקשרות ופרופיל לקוח</span>
+                      <span className="text-xs bg-stone-100 text-stone-700 px-2.5 py-0.5 rounded-full font-medium">
+                        מקור: {selectedClientForDossier.source || 'מנהל ידני'}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={startEditingDossierClient}
+                      className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                    >
+                      <span>✏️</span> ערוך פרטי לקוח
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Full Email Display Card - NO TRUNCATION */}
+                    <div className="bg-[#fcfaf7] p-4 rounded-xl border border-amber-200/70 shadow-2xs flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-gray-500 font-bold flex items-center gap-1.5 mb-1.5">
+                          <span>✉️</span> כתובת דוא״ל מלאה:
+                        </span>
+                        <div className="text-[#1a2332] font-mono text-sm font-bold break-all bg-white p-2 rounded-lg border border-stone-200" dir="ltr">
+                          {selectedClientForDossier.email || <span className="text-gray-400 font-sans italic text-xs">לא צוינה כתובת אימייל</span>}
+                        </div>
+                      </div>
+                      {selectedClientForDossier.email && (
+                        <div className="flex items-center gap-3 pt-1 border-t border-stone-100">
+                          <a 
+                            href={`mailto:${selectedClientForDossier.email}`} 
+                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 font-semibold"
+                          >
+                            <span>↗️</span> שלח דוא״ל
+                          </a>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(selectedClientForDossier.email);
+                              alert("כתובת הדוא״ל הועתקה ללוח בהצלחה!");
+                            }}
+                            className="text-xs text-gray-500 hover:text-gray-800 flex items-center gap-1"
+                          >
+                            <span>📋</span> העתק
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Phone Display Card */}
+                    <div className="bg-[#fcfaf7] p-4 rounded-xl border border-amber-200/70 shadow-2xs flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-gray-500 font-bold flex items-center gap-1.5 mb-1.5">
+                          <span>📱</span> טלפון נייד:
+                        </span>
+                        <div className="text-[#1a2332] font-mono text-base font-bold bg-white p-2 rounded-lg border border-stone-200" dir="ltr">
+                          {selectedClientForDossier.phone}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1 border-t border-stone-100">
+                        <a 
+                          href={formatWhatsAppUrl(selectedClientForDossier.phone, `${selectedClientForDossier.first_name} ${selectedClientForDossier.last_name}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-green-100 hover:bg-green-200 text-green-800 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 transition"
+                        >
+                          <span>💬</span> WhatsApp
+                        </a>
+                        <a 
+                          href={`tel:${selectedClientForDossier.phone}`}
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold"
+                        >
+                          <span>📞</span> חייג
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* City & Meta Card */}
+                    <div className="bg-[#fcfaf7] p-4 rounded-xl border border-amber-200/70 shadow-2xs flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-gray-500 font-bold flex items-center gap-1.5 mb-1.5">
+                          <span>📍</span> עיר מגורים:
+                        </span>
+                        <div className="text-[#1a2332] text-base font-bold bg-white p-2 rounded-lg border border-stone-200">
+                          {selectedClientForDossier.city || <span className="text-gray-400 font-sans italic text-xs font-normal">לא צוינה עיר</span>}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 pt-1 border-t border-stone-100 flex justify-between items-center">
+                        <span>תאריך הצטרפות:</span>
+                        <span className="font-mono text-blue-700 font-bold" dir="ltr">
+                          {selectedClientForDossier.created_at ? formatDate(selectedClientForDossier.created_at.split('T')[0]) : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">אימייל</span>
-                  <strong className="text-[#1a2332] text-xs truncate block" dir="ltr">{selectedClientForDossier.email || '-'}</strong>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">עיר מגורים</span>
-                  <strong className="text-[#1a2332]">{selectedClientForDossier.city || '-'}</strong>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">תאריך רישום</span>
-                  <strong className="text-blue-600" dir="ltr">{selectedClientForDossier.created_at ? formatDate(selectedClientForDossier.created_at.split('T')[0]) : '-'}</strong>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">מקור רישום</span>
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">{selectedClientForDossier.source || 'מנהל'}</span>
-                </div>
-              </div>
+              )}
 
               {/* Client Notes Section */}
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+              <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-2xl shadow-2xs">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-amber-900 font-bold flex items-center gap-1">
+                  <span className="text-xs text-amber-900 font-bold flex items-center gap-1.5">
                     <span>📝</span> הערות ודגשים ללקוח:
                   </span>
                   <button
@@ -1432,7 +1678,7 @@ export default function ManagerDashboard() {
                     <span>✏️</span> ערוך הערה
                   </button>
                 </div>
-                <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap bg-white/70 p-2.5 rounded-lg border border-amber-100">
+                <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap bg-white p-3 rounded-xl border border-amber-100 shadow-2xs">
                   {selectedClientForDossier.notes || "אין הערות שמורות עבור לקוח זה. לחץ 'ערוך הערה' להוספה."}
                 </p>
               </div>
@@ -1442,45 +1688,66 @@ export default function ManagerDashboard() {
                 const clientInvoices = invoices.filter(inv => inv.client_id === selectedClientForDossier.id);
                 const totalSpent = clientInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
                 const clientAppts = appointments.filter(a => a.client_id === selectedClientForDossier.id);
+                const avgSpend = clientAppts.length > 0 ? Math.round(totalSpent / clientAppts.length) : totalSpent;
                 return (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center">
-                      <span className="text-xs text-green-700 font-bold block">סך כל הרכישות והתשלומים</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 p-4 rounded-2xl text-center shadow-2xs">
+                      <span className="text-xs text-green-700 font-bold block mb-1">סך רכישות מצטבר (LTV)</span>
                       <strong className="text-3xl text-green-800 font-bold font-mono">₪{totalSpent}</strong>
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center">
-                      <span className="text-xs text-blue-700 font-bold block">סה״כ תורים שנקבעו</span>
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl text-center shadow-2xs">
+                      <span className="text-xs text-blue-700 font-bold block mb-1">סה״כ תורים שהוזמנו</span>
                       <strong className="text-3xl text-blue-800 font-bold">{clientAppts.length}</strong>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center shadow-2xs">
+                      <span className="text-xs text-amber-800 font-bold block mb-1">ממוצע תשלום לתור</span>
+                      <strong className="text-3xl text-amber-900 font-bold font-mono">₪{avgSpend}</strong>
                     </div>
                   </div>
                 );
               })()}
 
               {/* Client Appointments History */}
-              <div>
-                <h4 className="font-bold text-[#1a2332] mb-2 flex items-center gap-2">
-                  <span>📅</span> היסטוריית תורים
-                </h4>
+              <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-bold text-[#1a2332] flex items-center gap-2">
+                    <span>📅</span> היסטוריית תורים ({appointments.filter(a => a.client_id === selectedClientForDossier.id).length})
+                  </h4>
+                </div>
                 {appointments.filter(a => a.client_id === selectedClientForDossier.id).length === 0 ? (
-                  <p className="text-gray-400 text-sm bg-gray-50 p-3 rounded">אין תורים רשומים עבור לקוח זה.</p>
+                  <p className="text-gray-400 text-sm bg-stone-50 p-4 rounded-xl text-center">אין תורים רשומים עבור לקוח זה במערכת.</p>
                 ) : (
-                  <div className="border rounded-xl overflow-hidden">
+                  <div className="border border-stone-200 rounded-xl overflow-hidden">
                     <table className="w-full text-right text-sm">
-                      <thead className="bg-gray-50 border-b text-gray-500 text-xs">
+                      <thead className="bg-stone-100/70 border-b text-gray-600 text-xs">
                         <tr>
-                          <th className="p-2.5">שירות</th>
-                          <th className="p-2.5">תאריך</th>
-                          <th className="p-2.5">שעה</th>
-                          <th className="p-2.5">סטטוס</th>
+                          <th className="p-3">סוג שירות</th>
+                          <th className="p-3">ספר / איש צוות</th>
+                          <th className="p-3">תאריך</th>
+                          <th className="p-3">שעה</th>
+                          <th className="p-3">סטטוס</th>
                         </tr>
                       </thead>
                       <tbody>
                         {appointments.filter(a => a.client_id === selectedClientForDossier.id).map(a => (
-                          <tr key={a.id} className="border-b">
-                            <td className="p-2.5 font-medium">{a.service}</td>
-                            <td className="p-2.5 text-blue-600"><span dir="ltr">{formatDate(a.appointment_date)}</span></td>
-                            <td className="p-2.5 text-blue-600"><span dir="ltr">{a.appointment_time?.substring(0, 5)}</span></td>
-                            <td className="p-2.5"><span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">{a.status}</span></td>
+                          <tr key={a.id} className="border-b hover:bg-stone-50 transition">
+                            <td className="p-3 font-medium text-gray-900">{a.service}</td>
+                            <td className="p-3">
+                              <span className="bg-[#1a2332] text-[#c9a962] text-xs px-2.5 py-0.5 rounded font-bold">
+                                {getApptEmployee(a)}
+                              </span>
+                            </td>
+                            <td className="p-3 text-blue-700 font-mono"><span dir="ltr">{formatDate(a.appointment_date)}</span></td>
+                            <td className="p-3 text-blue-700 font-mono"><span dir="ltr">{a.appointment_time?.substring(0, 5)}</span></td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                a.status === 'בוצע' ? 'bg-green-100 text-green-800' :
+                                a.status === 'אושר' ? 'bg-blue-100 text-blue-800' :
+                                a.status === 'בוטל' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1490,30 +1757,32 @@ export default function ManagerDashboard() {
               </div>
 
               {/* Client Invoices History */}
-              <div>
-                <h4 className="font-bold text-[#1a2332] mb-2 flex items-center gap-2">
-                  <span>💰</span> היסטוריית חשבוניות ורכישות
-                </h4>
+              <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-bold text-[#1a2332] flex items-center gap-2">
+                    <span>💰</span> היסטוריית חשבוניות ורכישות ({invoices.filter(inv => inv.client_id === selectedClientForDossier.id).length})
+                  </h4>
+                </div>
                 {invoices.filter(inv => inv.client_id === selectedClientForDossier.id).length === 0 ? (
-                  <p className="text-gray-400 text-sm bg-gray-50 p-3 rounded">אין חשבוניות רשומות עבור לקוח זה.</p>
+                  <p className="text-gray-400 text-sm bg-stone-50 p-4 rounded-xl text-center">אין חשבוניות רשומות עבור לקוח זה במערכת.</p>
                 ) : (
-                  <div className="border rounded-xl overflow-hidden">
+                  <div className="border border-stone-200 rounded-xl overflow-hidden">
                     <table className="w-full text-right text-sm">
-                      <thead className="bg-gray-50 border-b text-gray-500 text-xs">
+                      <thead className="bg-stone-100/70 border-b text-gray-600 text-xs">
                         <tr>
-                          <th className="p-2.5">מספר קבלה</th>
-                          <th className="p-2.5">תיאור</th>
-                          <th className="p-2.5">סכום</th>
-                          <th className="p-2.5">תאריך</th>
+                          <th className="p-3">מספר קבלה</th>
+                          <th className="p-3">תיאור שירות / מוצר</th>
+                          <th className="p-3">סכום ששולם</th>
+                          <th className="p-3">תאריך הפקה</th>
                         </tr>
                       </thead>
                       <tbody>
                         {invoices.filter(inv => inv.client_id === selectedClientForDossier.id).map(inv => (
-                          <tr key={inv.id} className="border-b">
-                            <td className="p-2.5 font-mono">#{inv.id}</td>
-                            <td className="p-2.5">{inv.service_description}</td>
-                            <td className="p-2.5 font-bold text-green-700">₪{inv.amount}</td>
-                            <td className="p-2.5 text-gray-500"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
+                          <tr key={inv.id} className="border-b hover:bg-stone-50 transition">
+                            <td className="p-3 font-mono font-bold text-gray-600">#{inv.id}</td>
+                            <td className="p-3 font-medium text-gray-800">{inv.service_description}</td>
+                            <td className="p-3 font-bold text-green-700 font-mono text-base">₪{inv.amount}</td>
+                            <td className="p-3 text-gray-600 font-mono"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -1524,32 +1793,44 @@ export default function ManagerDashboard() {
             </div>
 
             {/* Footer actions */}
-            <div className="bg-gray-50 p-4 border-t flex justify-end gap-3 shrink-0">
+            <div className="bg-gray-50 p-4 border-t flex flex-wrap justify-between items-center gap-3 shrink-0">
               <button 
-                onClick={() => {
-                  const client = selectedClientForDossier;
-                  setSelectedClientForDossier(null);
-                  setFormData({ client_id: client.id, appointment_date: new Date().toISOString().split('T')[0], appointment_time: '10:00' });
-                  setShowApptModal(true);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+                onClick={startEditingDossierClient}
+                className="text-xs text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition"
               >
-                ➕ קבע תור ללקוח זה
+                <span>✏️</span> ערוך פרטי לקוח
               </button>
-              <button 
-                onClick={() => {
-                  const client = selectedClientForDossier;
-                  setSelectedClientForDossier(null);
-                  setFormData({ client_id: client.id, amount: 100, service_description: 'טיפול במספרה' });
-                  setShowInvoiceModal(true);
-                }}
-                className="bg-[#c9a962] hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
-              >
-                ➕ הפק קבלה ללקוח זה
-              </button>
-              <button onClick={() => setSelectedClientForDossier(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition">
-                סגור
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    const client = selectedClientForDossier;
+                    setSelectedClientForDossier(null);
+                    setFormData({ client_id: client.id, appointment_date: new Date().toISOString().split('T')[0], appointment_time: '10:00' });
+                    setShowApptModal(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1 shadow-sm"
+                >
+                  <span>📅</span> קבע תור ללקוח זה
+                </button>
+                <button 
+                  onClick={() => {
+                    const client = selectedClientForDossier;
+                    setSelectedClientForDossier(null);
+                    setFormData({ client_id: client.id, amount: 100, service_description: 'טיפול במספרה' });
+                    setShowInvoiceModal(true);
+                  }}
+                  className="bg-[#c9a962] hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-1 shadow-sm"
+                >
+                  <span>🧾</span> הפק קבלה
+                </button>
+                <button 
+                  onClick={() => { setSelectedClientForDossier(null); setIsEditingDossierClient(false); }} 
+                  className="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition"
+                >
+                  סגור
+                </button>
+              </div>
             </div>
           </div>
         </div>
