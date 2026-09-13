@@ -112,6 +112,17 @@ export default function ManagerDashboard() {
     return dateStr;
   };
 
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(amount)) return '₪0';
+    const num = Number(amount);
+    // Round to 2 decimal places to avoid floating point precision artifacts (e.g., 7.08000000000002)
+    const cleanNum = Math.round((num + Number.EPSILON) * 100) / 100;
+    return '₪' + cleanNum.toLocaleString('he-IL', {
+      minimumFractionDigits: cleanNum % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+  };
+
   const clientsMap = useMemo(() => {
     const map = new Map<number, any>();
     clients.forEach(c => map.set(c.id, c));
@@ -939,7 +950,7 @@ export default function ManagerDashboard() {
                         </td>
                         <td className="py-3 text-gray-600 font-mono text-sm" dir="ltr">{client?.phone || '-'}</td>
                         <td className="py-3 text-gray-700 text-sm font-medium">{client?.city || '-'}</td>
-                        <td className="py-3 font-bold text-green-700 text-lg">₪{inv.amount}</td>
+                        <td className="py-3 font-bold text-green-700 text-lg">{formatCurrency(inv.amount)}</td>
                         <td className="py-3">{inv.service_description}</td>
                         <td className="py-3 text-gray-600 font-medium"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
                         <td className="py-3">
@@ -1161,7 +1172,7 @@ export default function ManagerDashboard() {
                           <tr key={inv.id} className="border-b text-sm">
                             <td className="py-2 font-mono">#{inv.id}</td>
                             <td className="py-2 font-bold">{client ? `${client.first_name} ${client.last_name}` : `לקוח #${inv.client_id}`}</td>
-                            <td className="py-2 font-bold text-green-700">₪{inv.amount}</td>
+                            <td className="py-2 font-bold text-green-700">{formatCurrency(inv.amount)}</td>
                             <td className="py-2">{inv.service_description}</td>
                             <td className="py-2 text-gray-600"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
                             <td className="py-2"><button onClick={() => restoreInvoice(inv.id)} className="bg-green-100 text-green-800 px-3 py-1 rounded text-xs font-bold hover:bg-green-200 transition">♻️ שחזר</button></td>
@@ -1686,14 +1697,14 @@ export default function ManagerDashboard() {
               {/* Financial KPI for this client */}
               {(() => {
                 const clientInvoices = invoices.filter(inv => inv.client_id === selectedClientForDossier.id);
-                const totalSpent = clientInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+                const totalSpent = clientInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
                 const clientAppts = appointments.filter(a => a.client_id === selectedClientForDossier.id);
-                const avgSpend = clientAppts.length > 0 ? Math.round(totalSpent / clientAppts.length) : totalSpent;
+                const avgSpend = clientAppts.length > 0 ? (totalSpent / clientAppts.length) : totalSpent;
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-green-50 border border-green-200 p-4 rounded-2xl text-center shadow-2xs">
                       <span className="text-xs text-green-700 font-bold block mb-1">סך רכישות מצטבר (LTV)</span>
-                      <strong className="text-3xl text-green-800 font-bold font-mono">₪{totalSpent}</strong>
+                      <strong className="text-3xl text-green-800 font-bold font-mono">{formatCurrency(totalSpent)}</strong>
                     </div>
                     <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl text-center shadow-2xs">
                       <span className="text-xs text-blue-700 font-bold block mb-1">סה״כ תורים שהוזמנו</span>
@@ -1701,7 +1712,7 @@ export default function ManagerDashboard() {
                     </div>
                     <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center shadow-2xs">
                       <span className="text-xs text-amber-800 font-bold block mb-1">ממוצע תשלום לתור</span>
-                      <strong className="text-3xl text-amber-900 font-bold font-mono">₪{avgSpend}</strong>
+                      <strong className="text-3xl text-amber-900 font-bold font-mono">{formatCurrency(avgSpend)}</strong>
                     </div>
                   </div>
                 );
@@ -1781,7 +1792,7 @@ export default function ManagerDashboard() {
                           <tr key={inv.id} className="border-b hover:bg-stone-50 transition">
                             <td className="p-3 font-mono font-bold text-gray-600">#{inv.id}</td>
                             <td className="p-3 font-medium text-gray-800">{inv.service_description}</td>
-                            <td className="p-3 font-bold text-green-700 font-mono text-base">₪{inv.amount}</td>
+                            <td className="p-3 font-bold text-green-700 font-mono text-base">{formatCurrency(inv.amount)}</td>
                             <td className="p-3 text-gray-600 font-mono"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
                           </tr>
                         ))}
