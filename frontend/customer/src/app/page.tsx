@@ -240,7 +240,7 @@ export default function CustomerHome() {
     <div dir="rtl" className="min-h-screen bg-[#f5f0e8] text-[#1a2332] font-sans relative">
       {/* Hero Section */}
       <header className="py-20 px-4 text-center bg-[#1a2332] text-white">
-        <h1 className="text-5xl font-serif mb-4 text-[#c9a962]">FRIZURA</h1>
+        <h1 className="text-7xl md:text-9xl font-serif mb-6 text-[#c9a962] font-black tracking-widest">FRIZURA</h1>
         <p className="text-xl">Boutique Hair Salon</p>
       </header>
       
