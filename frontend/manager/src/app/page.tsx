@@ -157,18 +157,20 @@ export default function ManagerDashboard() {
     setLoading(true);
     const headers = { Authorization: `Bearer ${currentToken}` };
     try {
-      const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes] = await Promise.all([
+      const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes, archivedClientsRes] = await Promise.all([
         axios.get(`${apiUrl}/api/appointments/`, { headers }),
         axios.get(`${apiUrl}/api/leads/`, { headers }),
         axios.get(`${apiUrl}/api/clients/`, { headers }),
         axios.get(`${apiUrl}/api/invoices/`, { headers }),
-        axios.get(`${apiUrl}/api/settings/`, { headers })
+        axios.get(`${apiUrl}/api/settings/`, { headers }),
+        axios.get(`${apiUrl}/api/clients/archive`, { headers })
       ]);
       setAppointments(apptsRes.data);
       setLeads(leadsRes.data);
       setClients(clientsRes.data);
       setInvoices(invoicesRes.data);
       setSettings(settingsRes.data);
+      setArchivedClients(archivedClientsRes.data);
     } catch (err: any) {
       console.error("fetchData failed:", err);
       if (err.response?.status === 401) {
