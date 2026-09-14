@@ -126,8 +126,9 @@ export default function ManagerDashboard() {
   const clientsMap = useMemo(() => {
     const map = new Map<number, any>();
     clients.forEach(c => map.set(c.id, c));
+    archivedClients.forEach(c => map.set(c.id, c));
     return map;
-  }, [clients]);
+  }, [clients, archivedClients]);
 
   // Compute upcoming future appointments sorted chronologically
   const upcomingAppointments = useMemo(() => {
@@ -156,18 +157,20 @@ export default function ManagerDashboard() {
     setLoading(true);
     const headers = { Authorization: `Bearer ${currentToken}` };
     try {
-      const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes] = await Promise.all([
+      const [apptsRes, leadsRes, clientsRes, invoicesRes, settingsRes, archivedClientsRes] = await Promise.all([
         axios.get(`${apiUrl}/api/appointments/`, { headers }),
         axios.get(`${apiUrl}/api/leads/`, { headers }),
         axios.get(`${apiUrl}/api/clients/`, { headers }),
         axios.get(`${apiUrl}/api/invoices/`, { headers }),
-        axios.get(`${apiUrl}/api/settings/`, { headers })
+        axios.get(`${apiUrl}/api/settings/`, { headers }),
+        axios.get(`${apiUrl}/api/clients/archive`, { headers })
       ]);
       setAppointments(apptsRes.data);
       setLeads(leadsRes.data);
       setClients(clientsRes.data);
       setInvoices(invoicesRes.data);
       setSettings(settingsRes.data);
+      setArchivedClients(archivedClientsRes.data);
     } catch (err: any) {
       console.error("fetchData failed:", err);
       if (err.response?.status === 401) {
@@ -1097,7 +1100,12 @@ export default function ManagerDashboard() {
                         const client = clientsMap.get(a.client_id);
                         return (
                           <tr key={a.id} className="border-b text-sm">
-                            <td className="py-2 font-bold">{client ? `${client.first_name} ${client.last_name}` : `לקוח #${a.client_id}`}</td>
+                            <td 
+                              className={`py-2 font-bold ${client ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                              onClick={() => client && setSelectedClientForDossier(client)}
+                            >
+                              {client ? `${client.first_name} ${client.last_name}` : `לקוח #${a.client_id}`}
+                            </td>
                             <td className="py-2 text-gray-600" dir="ltr">{client?.phone || '-'}</td>
                             <td className="py-2">{a.service}</td>
                             <td className="py-2 text-blue-600"><span dir="ltr">{formatDate(a.appointment_date)}</span></td>
@@ -1133,7 +1141,12 @@ export default function ManagerDashboard() {
                     <tbody>
                       {archivedClients.map(c => (
                         <tr key={c.id} className="border-b text-sm">
-                          <td className="py-2 font-bold">{c.first_name} {c.last_name}</td>
+                          <td 
+                            className="py-2 font-bold cursor-pointer hover:text-blue-600 hover:underline"
+                            onClick={() => setSelectedClientForDossier(c)}
+                          >
+                            {c.first_name} {c.last_name}
+                          </td>
                           <td className="py-2" dir="ltr">{c.phone}</td>
                           <td className="py-2 font-mono text-xs" dir="ltr">{c.email || '-'}</td>
                           <td className="py-2">{c.city || '-'}</td>
@@ -1171,7 +1184,12 @@ export default function ManagerDashboard() {
                         return (
                           <tr key={inv.id} className="border-b text-sm">
                             <td className="py-2 font-mono">#{inv.id}</td>
-                            <td className="py-2 font-bold">{client ? `${client.first_name} ${client.last_name}` : `לקוח #${inv.client_id}`}</td>
+                            <td 
+                              className={`py-2 font-bold ${client ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                              onClick={() => client && setSelectedClientForDossier(client)}
+                            >
+                              {client ? `${client.first_name} ${client.last_name}` : `לקוח #${inv.client_id}`}
+                            </td>
                             <td className="py-2 font-bold text-green-700">{formatCurrency(inv.amount)}</td>
                             <td className="py-2">{inv.service_description}</td>
                             <td className="py-2 text-gray-600"><span dir="ltr">{formatDate(inv.invoice_date)}</span></td>
